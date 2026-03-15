@@ -11,13 +11,9 @@ import {
 } from 'recharts';
 import Navbar from "@/components/Navbar";
 import { priceHistoryData, categoryTrendData, products } from "@/data/mockData";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
-
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
+import AddProductModal from "@/components/AddProductModal";
 
 const StatCard = ({ title, value, change, isPositive, icon: Icon }) => (
   <div className="bg-brand-card border border-brand-border p-6 rounded-2xl hover:border-brand-cyan/30 transition-all group">
@@ -40,6 +36,7 @@ const StatCard = ({ title, value, change, isPositive, icon: Icon }) => (
 
 export default function Dashboard() {
   const [range, setRange] = React.useState('1M');
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
 
   const ranges = ['7D', '1M', '3M', '6M', '1Y'];
 
@@ -255,6 +252,7 @@ export default function Dashboard() {
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div
+            onClick={() => setIsModalOpen(true)}
             className="bg-brand-card border border-brand-border p-6 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-brand-bg/50 hover:border-brand-cyan/30 transition-all group"
             data-tooltip-id="global-tooltip"
             data-tooltip-content="Track a new product URL"
@@ -281,7 +279,8 @@ export default function Dashboard() {
         </div>
       </main>
 
-      <button 
+      <button
+        onClick={() => setIsModalOpen(true)}
         className="fixed bottom-8 right-8 w-14 h-14 bg-brand-cyan text-brand-bg rounded-full shadow-lg shadow-brand-cyan/20 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group"
       >
         <Plus className="w-8 h-8 font-black" />
@@ -290,7 +289,12 @@ export default function Dashboard() {
         </span>
       </button>
 
-      <ReactTooltip 
+      <AddProductModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+
+      <ReactTooltip
         id="global-tooltip"
         style={{ backgroundColor: '#0c1523', border: '1px solid #1e293b', padding: '8px 12px', fontSize: '12px', zIndex: 100 }}
       />
