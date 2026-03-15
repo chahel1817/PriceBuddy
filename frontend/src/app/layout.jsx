@@ -11,6 +11,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+import Sidebar from "@/components/Sidebar";
+
 export const metadata = {
   title: "PriceBuddy | Global Price Intelligence",
   description: "Monitor, track and analyze product prices globally.",
@@ -19,8 +21,13 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased selection:bg-brand-cyan selection:text-brand-bg`}>
+        <div className="flex bg-brand-bg min-h-screen">
+          <Sidebar />
+          <div className="flex-1 flex flex-col">
+            {children}
+          </div>
+        </div>
       </body>
     </html>
   );
