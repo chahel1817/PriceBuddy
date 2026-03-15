@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #060b13;
@@ -20,22 +18,27 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
+  font-family: 'Inter', sans-serif;
+}
+
+@theme {
+  --color-brand-cyan: #00e5ff;
+  --color-brand-bg: #060b13;
+  --color-brand-card: #0c1523;
+  --color-brand-border: #1e293b;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
-
 ::-webkit-scrollbar-track {
   background: var(--background);
 }
-
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
 }
