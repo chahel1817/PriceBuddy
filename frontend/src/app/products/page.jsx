@@ -41,7 +41,7 @@ export default function ProductsPage() {
 
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.store.toLowerCase().includes(searchQuery.toLowerCase())
+        p.stores.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     return (
@@ -87,11 +87,10 @@ export default function ProductsPage() {
                             <thead className="bg-[#0c1523] border-b border-brand-border text-[10px] uppercase font-black tracking-widest text-gray-500">
                                 <tr>
                                     <th className="px-6 py-5">Product Info</th>
-                                    <th className="px-6 py-5">Store</th>
+                                    <th className="px-6 py-5">Stores Tracked</th>
                                     <th className="px-6 py-5">Category</th>
-                                    <th className="px-6 py-5">Price</th>
+                                    <th className="px-6 py-5">Min. Price</th>
                                     <th className="px-6 py-5">Status</th>
-                                    <th className="px-6 py-5">Last Update</th>
                                     <th className="px-6 py-5 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -104,18 +103,27 @@ export default function ProductsPage() {
                                     >
                                         <td className="px-6 py-5">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-white rounded-xl p-1 border border-brand-border shadow-sm">
+                                                <div className="w-12 h-12 bg-white rounded-xl p-1 border border-brand-border shadow-sm flex-shrink-0">
                                                     <img src={p.productImage} alt="" className="w-full h-full object-contain" />
                                                 </div>
-                                                <span className="font-bold text-white group-hover:text-brand-cyan transition-colors truncate max-w-[200px]">{p.name}</span>
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="font-bold text-white group-hover:text-brand-cyan transition-colors truncate max-w-[200px]">{p.name}</span>
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{p.updated}</span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-5">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-5 h-5 bg-white rounded flex items-center justify-center p-0.5 shadow-sm" title={p.store}>
-                                                    <img src={p.storeLogo} alt="" className="w-full h-full object-contain" />
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex -space-x-2">
+                                                    {p.stores.map((s, idx) => (
+                                                        <div key={idx} className="w-7 h-7 bg-white rounded-lg p-1 border-2 border-brand-card flex items-center justify-center shadow-lg transform hover:-translate-y-1 transition-transform" title={s.name}>
+                                                            <img src={s.logo} alt={s.name} className="w-full h-full object-contain" />
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{p.store}</span>
+                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">
+                                                    {p.stores.length} {p.stores.length === 1 ? 'Source' : 'Sources'}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-5">
@@ -130,12 +138,6 @@ export default function ProductsPage() {
                                             <div className="flex items-center gap-2">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
                                                 <span className="text-[10px] font-bold text-emerald-500 uppercase">Tracked</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col">
-                                                <span className="text-white text-xs font-bold">{p.updated}</span>
-                                                <span className="text-[9px] text-gray-600 uppercase font-black">Success Rate: 100%</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-5 text-right">
@@ -179,7 +181,7 @@ export default function ProductsPage() {
                 onClose={() => setIsModalOpen(false)}
             />
 
-            <ReactTooltip id="p-tip" style={{ backgroundColor: '#0c1523', border: '1px solid #1e293b', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold' }} />
+            <ReactTooltip id="p-tip" style={{ backgroundColor: '#0c1523', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold' }} border="1px solid #1e293b" />
         </div>
     );
 }
