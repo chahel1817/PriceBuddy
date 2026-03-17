@@ -27,6 +27,16 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
+// Get all products
+app.get('/api/products', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT * FROM products');
+        res.json({ success: true, count: rows.length, data: rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 Server is flying on http://localhost:${PORT}`);
 });
