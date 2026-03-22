@@ -6,10 +6,11 @@ import {
     Package, ExternalLink, Trash2, Eye, Plus, Search, Filter, RefreshCcw
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { products as mockProducts } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import AddProductModal from "@/components/AddProductModal";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
 
 export default function ProductsPage() {
     const [products, setProducts] = useState([]);
@@ -19,19 +20,66 @@ export default function ProductsPage() {
 
     const router = useRouter();
 
-    // Simulate API Fetch
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setProducts(mockProducts);
+    const fetchProducts = async () => {
+        try {
+            setLoading(true);
+            const user = JSON.parse(localStorage.getItem('user'));
+            const userId = user?.id;
+
+            if (!userId) {
+                setProducts([]);
+                return;
+            }
+
+            const EBAY_LOGO = "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg";
+
+            const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`, { cache: "no-store" });
+            if (!res.ok) throw new Error(`API error: ${res.status}`);
+            const result = await res.json();
+
+            if (result.success) {
+                const mapped = result.data.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    productImage: p.image_url || null,
+                    category: p.category,
+                    price: p.last_price ? `$${parseFloat(p.last_price).toLocaleString()}` : '—',
+                    updated: p.last_updated ? new Date(p.last_updated).toLocaleDateString() : 'Syncing...',
+                    stores: [{ name: 'eBay', logo: EBAY_LOGO }],
+                    url: p.product_url || "#"
+                }));
+                setProducts(mapped);
+            }
+        } catch (error) {
+            console.error("Fetch error:", error);
+            setProducts([]); // Show empty on error
+        } finally {
             setLoading(false);
-        }, 800);
-        return () => clearTimeout(timer);
+        }
+    };
+
+    useEffect(() => {
+        fetchProducts();
     }, []);
 
-    const handleDelete = (e, id) => {
+    const handleRefresh = () => fetchProducts();
+
+    const handleDelete = async (e, id) => {
         e.stopPropagation();
         if (window.confirm("Are you sure you want to stop tracking this product?")) {
-            setProducts(products.filter(p => p.id !== id));
+            try {
+                const user = JSON.parse(localStorage.getItem('user'));
+                const userId = user?.id;
+                const res = await fetch(`${API_BASE_URL}/products/${id}?user_id=${userId}`, {
+                    method: 'DELETE',
+                });
+                const result = await res.json();
+                if (result.success) {
+                    setProducts(products.filter(p => p.id !== id));
+                }
+            } catch (error) {
+                console.error("Delete error:", error);
+            }
         }
     };
 
@@ -41,7 +89,7 @@ export default function ProductsPage() {
 
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.stores.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        (p.stores && p.stores.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())))
     );
 
     return (
@@ -49,7 +97,6 @@ export default function ProductsPage() {
             <Navbar />
 
             <main className="p-8 space-y-6">
-                {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1">
                         <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Product Manager</h1>
@@ -67,8 +114,11 @@ export default function ProductsPage() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <button className="p-2.5 bg-brand-card border border-brand-border rounded-xl hover:text-brand-cyan transition-colors">
-                            <RefreshCcw className="w-5 h-5" />
+                        <button
+                            onClick={handleRefresh}
+                            className="p-2.5 bg-brand-card border border-brand-border rounded-xl hover:text-brand-cyan transition-colors"
+                        >
+                            <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
                         </button>
                         <button
                             onClick={() => setIsModalOpen(true)}
@@ -80,7 +130,6 @@ export default function ProductsPage() {
                     </div>
                 </div>
 
-                {/* Inventory Table */}
                 <div className="bg-brand-card border border-brand-border rounded-2xl overflow-hidden shadow-2xl relative">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -95,81 +144,102 @@ export default function ProductsPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-brand-border/30">
-                                {filteredProducts.map((p) => (
-                                    <tr
-                                        key={p.id}
-                                        onClick={() => handleViewDetails(p.id)}
-                                        className="hover:bg-[#0f2a3c]/40 transition-all duration-200 group cursor-pointer"
-                                    >
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-white rounded-xl p-1 border border-brand-border shadow-sm flex-shrink-0">
-                                                    <img src={p.productImage} alt="" className="w-full h-full object-contain" />
-                                                </div>
-                                                <div className="flex flex-col min-w-0">
-                                                    <span className="font-bold text-white group-hover:text-brand-cyan transition-colors truncate max-w-[200px]">{p.name}</span>
-                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{p.updated}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="flex -space-x-2">
-                                                    {p.stores.map((s, idx) => (
-                                                        <div key={idx} className="w-7 h-7 bg-white rounded-lg p-1 border-2 border-brand-card flex items-center justify-center shadow-lg transform hover:-translate-y-1 transition-transform" title={s.name}>
-                                                            <img src={s.logo} alt={s.name} className="w-full h-full object-contain" />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">
-                                                    {p.stores.length} {p.stores.length === 1 ? 'Source' : 'Sources'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <span className="text-[10px] font-black text-gray-500 uppercase px-2 py-1 bg-brand-bg border border-brand-border/50 rounded-md">
-                                                {p.category}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <span className="text-brand-cyan font-black text-base">{p.price}</span>
-                                        </td>
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                                                <span className="text-[10px] font-bold text-emerald-500 uppercase">Tracked</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-5 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); window.open(p.url || '#', '_blank'); }}
-                                                    className="p-2 hover:bg-brand-cyan/10 rounded-lg transition-colors group/btn"
-                                                    data-tooltip-id="p-tip"
-                                                    data-tooltip-content="Open in Store"
-                                                >
-                                                    <ExternalLink className="w-4 h-4 text-gray-500 group-hover/btn:text-brand-cyan" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleViewDetails(p.id)}
-                                                    className="p-2 hover:bg-brand-cyan/10 rounded-lg transition-colors group/btn"
-                                                    data-tooltip-id="p-tip"
-                                                    data-tooltip-content="View Analysis"
-                                                >
-                                                    <Eye className="w-4 h-4 text-gray-500 group-hover/btn:text-brand-cyan" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => handleDelete(e, p.id)}
-                                                    className="p-2 hover:bg-rose-500/10 rounded-lg transition-colors group/btn"
-                                                    data-tooltip-id="p-tip"
-                                                    data-tooltip-content="Delete Product"
-                                                >
-                                                    <Trash2 className="w-4 h-4 text-gray-500 group-hover/btn:text-rose-500" />
-                                                </button>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-6 py-20 text-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <RefreshCcw className="w-8 h-8 text-brand-cyan animate-spin" />
+                                                <span className="text-gray-500 font-bold uppercase tracking-widest text-xs">Accessing Database...</span>
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                ) : filteredProducts.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-6 py-20 text-center">
+                                            <div className="flex flex-col items-center gap-4 uppercase">
+                                                <Package className="w-12 h-12 text-gray-700" />
+                                                <span className="text-gray-500 font-bold tracking-widest">No products found in database</span>
+                                                <button onClick={() => setIsModalOpen(true)} className="text-brand-cyan text-xs font-black underline underline-offset-4">Add your first product</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredProducts.map((p) => (
+                                        <tr
+                                            key={p.id}
+                                            onClick={() => handleViewDetails(p.id)}
+                                            className="hover:bg-[#0f2a3c]/40 transition-all duration-200 group cursor-pointer"
+                                        >
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 bg-white rounded-xl p-1 border border-brand-border shadow-sm flex-shrink-0 flex items-center justify-center">
+                                                        <img src={p.productImage} alt="" className="max-w-full max-h-full object-contain" />
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="font-bold text-white group-hover:text-brand-cyan transition-colors truncate max-w-[200px]">{p.name}</span>
+                                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{p.updated}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <div className="flex -space-x-2">
+                                                        {(p.stores || []).map((s, idx) => (
+                                                            <div key={idx} className="w-7 h-7 bg-white rounded-lg p-1 border-2 border-brand-card flex items-center justify-center shadow-lg transform hover:-translate-y-1 transition-transform" title={s.name}>
+                                                                <img src={s.logo} alt={s.name} className="w-full h-full object-contain" />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">
+                                                        {p.stores?.length || 0} {p.stores?.length === 1 ? 'Source' : 'Sources'}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <span className="text-[10px] font-black text-gray-500 uppercase px-2 py-1 bg-brand-bg border border-brand-border/50 rounded-md">
+                                                    {p.category}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <span className="text-brand-cyan font-black text-base">{p.price}</span>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                                                    <span className="text-[10px] font-bold text-emerald-500 uppercase">Tracked</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5 text-right">
+                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); window.open(p.url || '#', '_blank'); }}
+                                                        className="p-2 hover:bg-brand-cyan/10 rounded-lg transition-colors group/btn"
+                                                        data-tooltip-id="p-tip"
+                                                        data-tooltip-content="Open in Store"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4 text-gray-500 group-hover/btn:text-brand-cyan" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleViewDetails(p.id)}
+                                                        className="p-2 hover:bg-brand-cyan/10 rounded-lg transition-colors group/btn"
+                                                        data-tooltip-id="p-tip"
+                                                        data-tooltip-content="View Analysis"
+                                                    >
+                                                        <Eye className="w-4 h-4 text-gray-500 group-hover/btn:text-brand-cyan" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => handleDelete(e, p.id)}
+                                                        className="p-2 hover:bg-rose-500/10 rounded-lg transition-colors group/btn"
+                                                        data-tooltip-id="p-tip"
+                                                        data-tooltip-content="Delete Product"
+                                                    >
+                                                        <Trash2 className="w-4 h-4 text-gray-500 group-hover/btn:text-rose-500" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -179,6 +249,7 @@ export default function ProductsPage() {
             <AddProductModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                onSuccess={handleRefresh}
             />
 
             <ReactTooltip id="p-tip" style={{ backgroundColor: '#0c1523', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold' }} border="1px solid #1e293b" />

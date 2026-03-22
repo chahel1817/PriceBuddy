@@ -2,24 +2,35 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
-    LayoutDashboard, Package, ArrowLeftRight, Bell,
-    BarChart3, Cpu, Settings, ChevronRight
+    LayoutDashboard, Package, ArrowLeftRight,
+    BarChart3, Settings, ChevronRight, LogOut
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 
 const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { id: 'products', label: 'Products', icon: Package, href: '/products' },
+
     { id: 'comparison', label: 'Comparison', icon: ArrowLeftRight, href: '/comparison' },
-    { id: 'alerts', label: 'Alerts', icon: Bell, href: '/alerts', badge: '12' },
     { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/analytics' },
-    { id: 'scrapers', label: 'Scrapers', icon: Cpu, href: '/scrapers' },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
+    const [user, setUser] = React.useState(null);
+
+    React.useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) setUser(JSON.parse(storedUser));
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        router.push('/login');
+    };
 
     return (
         <aside className="w-64 bg-brand-bg border-r border-brand-border h-screen sticky top-0 flex flex-col z-50">
@@ -34,8 +45,8 @@ export default function Sidebar() {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 px-4 py-4 space-y-1">
-                <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Main Menu</p>
+            <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+                <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 font-black">Main Menu</p>
                 {menuItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
@@ -56,11 +67,6 @@ export default function Sidebar() {
                                 )} />
                                 <span>{item.label}</span>
                             </div>
-                            {item.badge && (
-                                <span className="bg-brand-cyan text-brand-bg text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                    {item.badge}
-                                </span>
-                            )}
                         </Link>
                     );
                 })}
@@ -72,15 +78,20 @@ export default function Sidebar() {
                     <Settings className="w-5 h-5 text-gray-500 group-hover:text-white" />
                     <span>Settings</span>
                 </Link>
-                <div className="mt-4 p-4 bg-brand-card border border-brand-border rounded-2xl relative overflow-hidden group cursor-pointer">
-                    <div className="absolute top-0 right-0 p-2 opacity-20 group-hover:opacity-100 transition-opacity">
-                        <ChevronRight className="w-4 h-4 text-brand-cyan" />
-                    </div>
+                <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-rose-500/70 hover:bg-rose-500/10 hover:text-rose-500 rounded-xl transition-all text-sm font-black uppercase tracking-widest group"
+                >
+                    <LogOut className="w-5 h-5 transition-colors" />
+                    <span>Log Out</span>
+                </button>
+
+                <div className="mt-4 p-4 bg-brand-card border border-brand-border rounded-2xl relative overflow-hidden group">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-cyan to-blue-500 border border-brand-border" />
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-white">Alex Johnson</span>
-                            <span className="text-[10px] text-gray-500">Pro Plan</span>
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-cyan to-blue-500 border border-brand-border p-0.5" />
+                        <div className="flex flex-col min-w-0">
+                            <span className="text-[11px] font-black text-white uppercase tracking-wider truncate mb-0.5">{user?.name || 'Guest User'}</span>
+                            <span className="text-[9px] text-gray-600 font-bold truncate tracking-widest uppercase">{user?.email || 'Unauthorized'}</span>
                         </div>
                     </div>
                 </div>
