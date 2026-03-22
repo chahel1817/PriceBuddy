@@ -7,7 +7,7 @@ import {
     AlertCircle, Bell, Share2, Globe, Clock, ShieldCheck
 } from "lucide-react";
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import Navbar from "@/components/Navbar";
 import { products, priceHistoryData } from "@/data/mockData";
@@ -18,6 +18,30 @@ export default function ProductDetailPage({ params }) {
     const resolvedParams = use(params);
     const router = useRouter();
     const product = products.find(p => p.id === parseInt(resolvedParams.id)) || products[0];
+
+    const prices = priceHistoryData.map(p => p.price);
+    const lastPrice = prices[prices.length - 1];
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+    const priceRange = (maxPrice - minPrice) || 1;
+    const volatility = (Math.sqrt(prices
+        .map(price => (price - avgPrice) ** 2)
+        .reduce((a, b) => a + b, 0) / prices.length) / avgPrice) * 100;
+
+    const colorForTone = {
+        emerald: 'bg-emerald-400',
+        rose: 'bg-rose-400',
+        cyan: 'bg-cyan-400',
+        amber: 'bg-amber-400',
+    };
+
+    const summary = [
+        { label: '7D High', value: `$${maxPrice.toFixed(0)}`, tone: 'emerald' },
+        { label: '7D Low', value: `$${minPrice.toFixed(0)}`, tone: 'rose' },
+        { label: 'Average', value: `$${avgPrice.toFixed(0)}`, tone: 'cyan' },
+        { label: 'Volatility', value: `${volatility.toFixed(1)}%`, tone: 'amber' },
+    ];
 
     return (
         <div className="flex flex-col flex-1 bg-brand-bg min-h-screen">
@@ -133,60 +157,114 @@ export default function ProductDetailPage({ params }) {
                 </div>
 
                 {/* Charts Section */}
-                <div className="bg-brand-card border border-brand-border rounded-3xl overflow-hidden shadow-2xl p-8 space-y-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/30 pb-6">
+                <div className="bg-brand-card border border-brand-border rounded-3xl overflow-hidden shadow-2xl p-8 space-y-8 relative">
+                    <div className="absolute inset-0 pointer-events-none opacity-40"
+                         style={{ background: "radial-gradient(circle at 20% 20%, rgba(0,229,255,0.08), transparent 35%), radial-gradient(circle at 80% 0%, rgba(94,234,212,0.06), transparent 30%)" }}
+                    />
+
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/30 pb-6 relative z-10">
                         <div className="space-y-1">
                             <h2 className="text-xl font-black text-white uppercase tracking-tighter">Price Performance History</h2>
-                            <p className="text-gray-500 text-sm">Visualizing fluctuations and historical value over time.</p>
+                            <p className="text-gray-500 text-sm">Smoothed trend with average band and contextual markers.</p>
                         </div>
-                        <div className="flex bg-brand-bg p-1 rounded-xl border border-brand-border">
+                        <div className="flex bg-brand-bg p-1 rounded-xl border border-brand-border/70 shadow-inner">
                             {['7D', '1M', '3M', 'All'].map((r) => (
-                                <button key={r} className={cn("px-4 py-2 rounded-lg text-xs font-black uppercase transition-all", r === '1M' ? "bg-brand-cyan text-brand-bg shadow-md" : "text-gray-500 hover:text-white")}>
+                                <button
+                                    key={r}
+                                    className={cn(
+                                        "px-4 py-2 rounded-lg text-xs font-black uppercase transition-all",
+                                        r === '7D' ? "bg-brand-cyan text-brand-bg shadow-md" : "text-gray-500 hover:text-white"
+                                    )}
+                                >
                                     {r}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    <div className="h-[400px] w-full">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 relative z-10">
+                        {summary.map((card) => (
+                            <div
+                                key={card.label}
+                                className="p-4 rounded-2xl border border-brand-border bg-brand-bg/60 backdrop-blur flex flex-col gap-2 shadow-sm"
+                            >
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">{card.label}</span>
+                                <span className="text-lg font-black text-white">{card.value}</span>
+                                <div className="h-1.5 w-full rounded-full bg-brand-border overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full ${colorForTone[card.tone]}`}
+                                        style={{ width: `${Math.min(100, ((card.label === 'Volatility' ? volatility : (parseInt(card.value.slice(1)) - minPrice)) / priceRange) * 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="h-[420px] w-full relative z-10 bg-brand-bg/40 border border-brand-border/60 rounded-2xl p-4">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={priceHistoryData}>
+                            <AreaChart data={priceHistoryData} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="detailPrice" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#00E5FF" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.35} />
+                                        <stop offset="40%" stopColor="#0ea5e9" stopOpacity={0.2} />
+                                        <stop offset="100%" stopColor="#0f172a" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+
+                                <CartesianGrid strokeDasharray="3 6" vertical={false} stroke="#1e293b" opacity={0.8} />
                                 <XAxis
                                     dataKey="name"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
-                                    dy={15}
+                                    tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }}
+                                    dy={12}
                                 />
                                 <YAxis
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
-                                    dx={-10}
+                                    tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }}
+                                    dx={-6}
+                                    width={55}
                                 />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#0c1523', border: '1px solid #1e293b', borderRadius: '12px', padding: '12px' }}
-                                    itemStyle={{ color: '#00E5FF', fontSize: '12px', fontWeight: 800 }}
-                                    labelStyle={{ color: '#64748b', marginBottom: '4px', fontSize: '10px', textTransform: 'uppercase', fontWeight: 900 }}
+                                    cursor={{ stroke: '#22d3ee', strokeWidth: 1, strokeDasharray: '4 3', opacity: 0.6 }}
+                                    content={({ active, payload, label }) => {
+                                        if (!active || !payload?.length) return null;
+                                        const price = payload[0].value;
+                                        return (
+                                            <div className="bg-brand-bg border border-brand-border rounded-xl p-3 shadow-xl space-y-1 min-w-[160px]">
+                                                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{label}</div>
+                                                <div className="text-xl font-black text-brand-cyan">${price}</div>
+                                                <div className="flex items-center justify-between text-[11px] font-bold text-gray-400">
+                                                    <span>vs avg</span>
+                                                    <span className={price >= avgPrice ? "text-emerald-400" : "text-rose-400"}>
+                                                        {price >= avgPrice ? '+' : ''}{(price - avgPrice).toFixed(0)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    }}
                                 />
+
+                                <ReferenceLine y={avgPrice} stroke="#22d3ee" strokeDasharray="5 5" strokeOpacity={0.6} label={{ position: 'left', value: 'Avg', fill: '#22d3ee', fontSize: 10, fontWeight: 800 }} />
+
                                 <Area
                                     type="monotone"
                                     dataKey="price"
-                                    stroke="#00E5FF"
+                                    stroke="#22d3ee"
                                     strokeWidth={3}
                                     fillOpacity={1}
                                     fill="url(#detailPrice)"
-                                    animationDuration={1500}
+                                    activeDot={{ r: 5, fill: '#0ea5e9', strokeWidth: 0 }}
+                                    animationDuration={1200}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
+
+                        <div className="absolute inset-x-4 bottom-4 flex items-center justify-between text-[11px] font-bold text-gray-500">
+                            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Avg Band</span>
+                            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-brand-cyan" /> Last Price ${lastPrice.toFixed(0)}</span>
+                        </div>
                     </div>
                 </div>
             </main>

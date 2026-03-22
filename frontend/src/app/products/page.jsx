@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Package, ExternalLink, Trash2, Eye, Plus, Search, Filter, RefreshCcw
+    Package, ExternalLink, Trash2, Eye, Plus, Search, Filter, RefreshCcw, TrendingUp, TrendingDown
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
 export default function ProductsPage() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState("All");
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const router = useRouter();
@@ -38,21 +39,34 @@ export default function ProductsPage() {
             const result = await res.json();
 
             if (result.success) {
-                const mapped = result.data.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    productImage: p.image_url || null,
-                    category: p.category,
-                    price: p.last_price ? `$${parseFloat(p.last_price).toLocaleString()}` : '—',
-                    updated: p.last_updated ? new Date(p.last_updated).toLocaleDateString() : 'Syncing...',
-                    stores: [{ name: 'eBay', logo: EBAY_LOGO }],
-                    url: p.product_url || "#"
-                }));
+                const mapped = result.data.map(p => {
+                    const latest = p.last_price ? parseFloat(p.last_price) : null;
+                    const prev = p.prev_price ? parseFloat(p.prev_price) : null;
+
+                    let trendType = 'steady';
+                    if (latest && prev) {
+                        if (latest < prev) trendType = 'falling';
+                        else if (latest > prev) trendType = 'rising';
+                    }
+
+                    return {
+                        id: p.id,
+                        name: p.name,
+                        productImage: p.image_url || null,
+                        category: p.category,
+                        price: latest ? `$${latest.toLocaleString()}` : '—',
+                        prevPrice: prev,
+                        trend: trendType,
+                        updated: p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Syncing...',
+                        stores: [{ name: 'eBay', logo: EBAY_LOGO }],
+                        url: p.product_url || "#"
+                    };
+                });
                 setProducts(mapped);
             }
         } catch (error) {
             console.error("Fetch error:", error);
-            setProducts([]); // Show empty on error
+            setProducts([]);
         } finally {
             setLoading(false);
         }
@@ -87,66 +101,80 @@ export default function ProductsPage() {
         router.push(`/product/${id}`);
     };
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.stores && p.stores.some(s => s.name.toLowerCase().includes(searchQuery.toLowerCase())))
-    );
+    const filteredProducts = products.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.category?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+    });
+
+    const categories = ['All', ...new Set(products.map(p => p.category).filter(Boolean))];
 
     return (
         <div className="flex flex-col flex-1 bg-brand-bg min-h-screen">
             <Navbar />
 
-            <main className="p-8 space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Product Manager</h1>
-                        <p className="text-gray-500 text-sm font-medium">Monitoring {products.length} active price streams</p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <div className="relative group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-brand-cyan transition-colors" />
-                            <input
-                                type="text"
-                                placeholder="Filter by name or store..."
-                                className="bg-brand-card border border-brand-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-cyan/50 w-64 transition-all"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
+            <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+                {/* Statistics Header */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-brand-card border border-brand-border p-5 rounded-2xl flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Assets</p>
+                            <p className="text-2xl font-black text-white">{products.length}</p>
                         </div>
-                        <button
-                            onClick={handleRefresh}
-                            className="p-2.5 bg-brand-card border border-brand-border rounded-xl hover:text-brand-cyan transition-colors"
-                        >
-                            <RefreshCcw className={cn("w-5 h-5", loading && "animate-spin")} />
-                        </button>
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-brand-cyan text-brand-bg rounded-xl font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-lg shadow-brand-cyan/20 uppercase tracking-widest"
-                        >
-                            <Plus className="w-5 h-5 font-black" />
-                            Add Product
-                        </button>
+                        <div className="w-10 h-10 bg-brand-cyan/10 rounded-xl flex items-center justify-center">
+                            <Package className="w-5 h-5 text-brand-cyan" />
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-brand-card border border-brand-border rounded-2xl overflow-hidden shadow-2xl relative">
+                {/* Controls */}
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full md:w-96 group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-brand-cyan transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Filter your collection..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-brand-card border border-brand-border rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-cyan/50 transition-all font-medium"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
+                        {categories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat)}
+                                className={cn(
+                                    "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap",
+                                    selectedCategory === cat
+                                        ? "bg-brand-cyan text-brand-bg border-brand-cyan shadow-lg shadow-brand-cyan/20"
+                                        : "bg-brand-card border-brand-border text-gray-500 hover:text-white hover:border-gray-700"
+                                )}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Table */}
+                <div className="bg-brand-card border border-brand-border rounded-3xl overflow-hidden shadow-2xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-[#0c1523] border-b border-brand-border text-[10px] uppercase font-black tracking-widest text-gray-500">
-                                <tr>
-                                    <th className="px-6 py-5">Product Info</th>
-                                    <th className="px-6 py-5">Stores Tracked</th>
-                                    <th className="px-6 py-5">Category</th>
-                                    <th className="px-6 py-5">Min. Price</th>
-                                    <th className="px-6 py-5">Status</th>
-                                    <th className="px-6 py-5 text-right">Actions</th>
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-[#0c1829]/50 border-b border-brand-border">
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Intelligence</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Market Value</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest hidden md:table-cell">Trend Status</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest hidden lg:table-cell">Store Data</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Action Center</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-brand-border/30">
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-20 text-center">
+                                        <td colSpan="5" className="px-6 py-20 text-center">
                                             <div className="flex flex-col items-center gap-4">
                                                 <RefreshCcw className="w-8 h-8 text-brand-cyan animate-spin" />
                                                 <span className="text-gray-500 font-bold uppercase tracking-widest text-xs">Accessing Database...</span>
@@ -155,7 +183,7 @@ export default function ProductsPage() {
                                     </tr>
                                 ) : filteredProducts.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-20 text-center">
+                                        <td colSpan="5" className="px-6 py-20 text-center">
                                             <div className="flex flex-col items-center gap-4 uppercase">
                                                 <Package className="w-12 h-12 text-gray-700" />
                                                 <span className="text-gray-500 font-bold tracking-widest">No products found in database</span>
@@ -168,45 +196,54 @@ export default function ProductsPage() {
                                         <tr
                                             key={p.id}
                                             onClick={() => handleViewDetails(p.id)}
-                                            className="hover:bg-[#0f2a3c]/40 transition-all duration-200 group cursor-pointer"
+                                            className="hover:bg-brand-cyan/[0.03] transition-all duration-200 group cursor-pointer"
                                         >
                                             <td className="px-6 py-5">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 bg-white rounded-xl p-1 border border-brand-border shadow-sm flex-shrink-0 flex items-center justify-center">
-                                                        <img src={p.productImage} alt="" className="max-w-full max-h-full object-contain" />
+                                                    <div className="w-12 h-12 bg-white rounded-xl p-1.5 border border-brand-border shadow-sm flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                        {p.productImage ? (
+                                                            <img src={p.productImage} alt="" className="w-full h-full object-contain" />
+                                                        ) : (
+                                                            <Package className="w-6 h-6 text-gray-200" />
+                                                        )}
                                                     </div>
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="font-bold text-white group-hover:text-brand-cyan transition-colors truncate max-w-[200px]">{p.name}</span>
-                                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{p.updated}</span>
+                                                        <span className="font-bold text-white group-hover:text-brand-cyan transition-colors truncate max-w-[200px] uppercase italic text-xs tracking-tight">{p.name}</span>
+                                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.15em]">{p.category}</span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <div className="flex -space-x-2">
-                                                        {(p.stores || []).map((s, idx) => (
-                                                            <div key={idx} className="w-7 h-7 bg-white rounded-lg p-1 border-2 border-brand-card flex items-center justify-center shadow-lg transform hover:-translate-y-1 transition-transform" title={s.name}>
-                                                                <img src={s.logo} alt={s.name} className="w-full h-full object-contain" />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">
-                                                        {p.stores?.length || 0} {p.stores?.length === 1 ? 'Source' : 'Sources'}
-                                                    </span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-base font-black text-white">{p.price}</span>
+                                                    <span className="text-[8px] text-gray-600 font-black uppercase tracking-widest tracking-tighter">Verified {p.updated}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-5">
-                                                <span className="text-[10px] font-black text-gray-500 uppercase px-2 py-1 bg-brand-bg border border-brand-border/50 rounded-md">
-                                                    {p.category}
-                                                </span>
+                                            <td className="px-6 py-5 hidden md:table-cell">
+                                                {p.trend === 'falling' ? (
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full w-fit">
+                                                        <TrendingDown className="w-3 h-3 text-emerald-400" />
+                                                        <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Optimal Drop</span>
+                                                    </div>
+                                                ) : p.trend === 'rising' ? (
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/10 border border-rose-500/20 rounded-full w-fit">
+                                                        <TrendingUp className="w-3 h-3 text-rose-400" />
+                                                        <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Market Spike</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-500/10 border border-gray-500/20 rounded-full w-fit">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+                                                        <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Steady Market</span>
+                                                    </div>
+                                                )}
                                             </td>
-                                            <td className="px-6 py-5">
-                                                <span className="text-brand-cyan font-black text-base">{p.price}</span>
-                                            </td>
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                                                    <span className="text-[10px] font-bold text-emerald-500 uppercase">Tracked</span>
+                                            <td className="px-6 py-5 hidden lg:table-cell">
+                                                <div className="flex -space-x-2">
+                                                    {p.stores.map((s, idx) => (
+                                                        <div key={idx} className="w-7 h-7 bg-white rounded-lg p-1 border border-brand-border flex items-center justify-center overflow-hidden shadow-sm" title={s.name}>
+                                                            <img src={s.logo} alt={s.name} className="w-full h-full object-contain" />
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-right">

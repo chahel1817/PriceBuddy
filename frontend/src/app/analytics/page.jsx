@@ -8,21 +8,41 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 export default function AnalyticsPage() {
     const [hasData, setHasData] = React.useState(false);
+    const [stats, setStats] = React.useState({ maxDrop: 0, savings: 0, count: 0 });
     const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
         const checkData = async () => {
             try {
                 const user = JSON.parse(localStorage.getItem('user'));
-                if (!user?.id) {
-                    setHasData(false);
-                    return;
-                }
+                if (!user?.id) return;
+
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001"}/products?user_id=${user.id}`);
                 const result = await res.json();
-                setHasData(result.success && result.data.length > 0);
+
+                if (result.success && result.data.length > 0) {
+                    let totalSavings = 0;
+                    let maxDropPct = 0;
+
+                    result.data.forEach(p => {
+                        const current = parseFloat(p.last_price);
+                        const prev = parseFloat(p.prev_price);
+
+                        if (current && prev && current < prev) {
+                            totalSavings += (prev - current);
+                            const draftPct = ((prev - current) / prev) * 100;
+                            if (draftPct > maxDropPct) maxDropPct = draftPct;
+                        }
+                    });
+
+                    setStats({
+                        maxDrop: maxDropPct.toFixed(1),
+                        savings: totalSavings.toFixed(2),
+                        count: result.data.length
+                    });
+                }
             } catch (e) {
-                setHasData(false);
+                console.error("Analytics fetch error", e);
             } finally {
                 setLoading(false);
             }
@@ -57,8 +77,8 @@ export default function AnalyticsPage() {
                         <div className="p-3 bg-brand-bg rounded-xl border border-brand-border w-fit mb-4 group-hover:border-emerald-500/30 transition-colors">
                             <TrendingDown className="text-emerald-400 w-6 h-6" />
                         </div>
-                        <h3 className="text-3xl font-black text-white mb-1">0.0%</h3>
-                        <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Average Market Dip</p>
+                        <h3 className="text-3xl font-black text-white mb-1">{stats.maxDrop}%</h3>
+                        <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Max Price Drop</p>
                     </div>
 
                     <div className="bg-brand-card border border-brand-border p-6 rounded-2xl relative overflow-hidden group">
@@ -66,8 +86,8 @@ export default function AnalyticsPage() {
                         <div className="p-3 bg-brand-bg rounded-xl border border-brand-border w-fit mb-4 group-hover:border-brand-cyan/30 transition-colors">
                             <Target className="text-brand-cyan w-6 h-6" />
                         </div>
-                        <h3 className="text-3xl font-black text-white mb-1">₹0.00</h3>
-                        <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Potential Total Savings</p>
+                        <h3 className="text-3xl font-black text-white mb-1">${stats.savings}</h3>
+                        <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Total Savings Found</p>
                     </div>
 
                     <div className="bg-brand-card border border-brand-border p-6 rounded-2xl relative overflow-hidden group">
@@ -75,8 +95,8 @@ export default function AnalyticsPage() {
                         <div className="p-3 bg-brand-bg rounded-xl border border-brand-border w-fit mb-4 group-hover:border-amber-500/30 transition-colors">
                             <Zap className="text-amber-400 w-6 h-6" />
                         </div>
-                        <h3 className="text-3xl font-black text-white mb-1">0</h3>
-                        <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Tracking Sessions</p>
+                        <h3 className="text-3xl font-black text-white mb-1">{stats.count}</h3>
+                        <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Active Assets</p>
                     </div>
                 </div>
 

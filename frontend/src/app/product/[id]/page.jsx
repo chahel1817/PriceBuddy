@@ -4,13 +4,12 @@ import React, { use } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, ExternalLink, TrendingDown, TrendingUp,
-    AlertCircle, Bell, Share2, Globe, Clock, ShieldCheck, Package
+    AlertCircle, Bell, Share2, Globe, Clock, ShieldCheck, Package, Activity
 } from "lucide-react";
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts';
 import Navbar from "@/components/Navbar";
-import { products, priceHistoryData } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 
@@ -65,18 +64,103 @@ export default function ProductDetailPage({ params }) {
         );
     }
 
-    const priceHistory = (product.history || []).map(h => ({
-        date: new Date(h.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-        price: parseFloat(h.price)
-    }));
+    const priceHistory = (product.history || [])
+        .map(h => ({
+            date: new Date(h.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+            price: parseFloat(h.price)
+        }))
+        .filter(item => isFinite(item.price) && item.price > 0 && item.price < 50000); // Filter out outliers or common errors like 999999
 
-    // Chart customization
+    // Dynamic Trend Detection
+    const getTrendStatus = () => {
+        if (priceHistory.length < 2) return { text: "Steady Market", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+        const latest = priceHistory[priceHistory.length - 1].price;
+        const previous = priceHistory[priceHistory.length - 2].price;
+        if (latest < previous) return { text: "Optimal Buy: Price Drop", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", icon: <TrendingDown className="w-3 h-3" /> };
+        if (latest > previous) return { text: "Market Spike: Rising", color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20", icon: <TrendingUp className="w-3 h-3" /> };
+        return { text: "Steady Market", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+    };
+    const trend = getTrendStatus();
+
+    // Chart Statistics
+    const validPrices = priceHistory.map(h => h.price).filter(p => isFinite(p));
+    const minPrice = validPrices.length ? Math.min(...validPrices) : 0;
+    const maxPrice = validPrices.length ? Math.max(...validPrices) : 0;
+    const avgPrice = validPrices.length ? (validPrices.reduce((a, b) => a + b, 0) / validPrices.length) : 0;
+
+    const CustomActiveDot = (props) => {
+        const { cx, cy, payload } = props;
+        if (!cx || !cy) return null;
+
+        return (
+            <g>
+                {/* Glow effect */}
+                <circle cx={cx} cy={cy} r={12} fill="#00E5FF" fillOpacity={0.15} />
+                {/* Main dot */}
+                <circle cx={cx} cy={cy} r={7} fill="#0c1523" stroke="#00E5FF" strokeWidth={3} />
+
+                {/* Floating Price Tag */}
+                <g transform={`translate(${cx}, ${cy - 25})`}>
+                    <rect
+                        x="-35"
+                        y="-22"
+                        width="70"
+                        height="24"
+                        rx="8"
+                        fill="#00E5FF"
+                        className="shadow-xl"
+                    />
+                    <path
+                        d="M -5 2 L 0 7 L 5 2"
+                        fill="#00E5FF"
+                    />
+                    <text
+                        x="0"
+                        y="-6"
+                        textAnchor="middle"
+                        fill="#0c1523"
+                        fontSize="11"
+                        fontWeight="900"
+                        fontFamily="inherit"
+                        pointerEvents="none"
+                    >
+                        ${(payload?.price || props.value)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </text>
+                </g>
+            </g>
+        );
+    };
+
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
+            const currentObj = payload[0].payload;
+            const currentIndex = priceHistory.findIndex(h => h === currentObj);
+            let changeElement = null;
+
+            if (currentIndex > 0) {
+                const prevObj = priceHistory[currentIndex - 1];
+                const diff = currentObj.price - prevObj.price;
+                if (diff !== 0) {
+                    const isDrop = diff < 0;
+                    changeElement = (
+                        <div className={cn("flex items-center gap-1 mt-1.5 text-[10px] font-black uppercase tracking-wider", isDrop ? "text-emerald-400" : "text-rose-400")}>
+                            {isDrop ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                            <span>{isDrop ? "Dropped" : "Increased"} ${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    );
+                } else {
+                    changeElement = <div className="mt-1.5 text-[10px] text-gray-500 font-bold uppercase tracking-widest">No Change</div>;
+                }
+            } else {
+                changeElement = <div className="mt-1.5 text-[10px] text-gray-500 font-bold uppercase tracking-widest">Initial Log</div>;
+            }
+
             return (
-                <div className="bg-brand-card border border-brand-border p-4 rounded-xl shadow-2xl backdrop-blur-md">
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">{label}</p>
-                    <p className="text-xl font-black text-brand-cyan">₹{payload[0].value.toLocaleString()}</p>
+                <div className="bg-[#0c1523]/95 backdrop-blur-md border border-brand-border p-4 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] min-w-[170px] transform -translate-y-2">
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">{label}</p>
+                    <p className="text-2xl font-black text-brand-cyan">${payload[0].value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <div className="h-px w-full bg-brand-border/50 my-2" />
+                    {changeElement}
                 </div>
             );
         }
@@ -88,7 +172,7 @@ export default function ProductDetailPage({ params }) {
             <Navbar />
 
             <main className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
-                {/* Back Link */}
+                {/* Navigation Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <button
                         onClick={() => router.back()}
@@ -98,20 +182,22 @@ export default function ProductDetailPage({ params }) {
                         <span className="text-xs font-bold uppercase tracking-widest">Back to Dashboard</span>
                     </button>
 
-                    <div className="flex items-center gap-2 px-4 py-2 bg-brand-card/50 border border-brand-border rounded-2xl w-fit">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                            Live Status: <span className="text-white">Tracking Active</span>
-                        </span>
+                    <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm", trend.bg, trend.border)}>
+                        <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", trend.color === 'text-emerald-400' ? 'bg-emerald-400' : 'bg-rose-400')} />
+                        <span className={cn("text-[9px] font-black uppercase tracking-widest", trend.color)}>{trend.icon ? <span className="inline-flex mr-1">{trend.icon}</span> : null} Live Status: Tracking Active</span>
                     </div>
                 </div>
 
-                {/* Hero section */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Left: Image & Main Info */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    {/* Left Column */}
                     <div className="lg:col-span-8 space-y-8">
-                        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-cyan/5 blur-[100px] -mr-32 -mt-32 rounded-full" />
+                        {/* Hero Card */}
+                        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-8">
+                                <span className={cn("px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border", trend.bg, trend.color, trend.border)}>
+                                    Real-Time Signal
+                                </span>
+                            </div>
 
                             <div className="flex flex-col md:flex-row gap-8 md:items-center relative z-10">
                                 <div className="w-full md:w-56 aspect-square bg-white rounded-3xl p-6 shadow-2xl border border-brand-border flex items-center justify-center transform hover:scale-105 transition-transform duration-500">
@@ -127,7 +213,7 @@ export default function ProductDetailPage({ params }) {
                                             {product.category}
                                         </span>
                                         <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            <ShieldCheck className="w-3 h-3" /> Verifed Source
+                                            <ShieldCheck className="w-3 h-3" /> Verified Source
                                         </span>
                                     </div>
                                     <h1 className="text-2xl md:text-3xl font-black text-white leading-[1.1] tracking-tighter uppercase italic">{product.name}</h1>
@@ -141,15 +227,15 @@ export default function ProductDetailPage({ params }) {
                             </div>
                         </div>
 
-                        {/* Current Store */}
+                        {/* Marketplace Banner */}
                         <div className="space-y-4">
                             <h2 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-2 px-2">
                                 <TrendingDown className="w-5 h-5 text-brand-cyan" /> Market Deal
                             </h2>
-                            <div className="bg-brand-card/30 border border-brand-cyan shadow-[0_0_25px_rgba(0,229,255,0.05)] p-6 rounded-3xl flex items-center justify-between group border-brand-border">
+                            <div className="bg-brand-card/30 border border-brand-border p-6 rounded-3xl flex items-center justify-between group">
                                 <div className="flex items-center gap-5">
                                     <div className="w-14 h-14 bg-white rounded-2xl p-2.5 border border-brand-border shadow-xl flex items-center justify-center overflow-hidden">
-                                        <img src={product.storeLogo} alt="eBay" className="w-full h-full object-contain" />
+                                        <img src={product.storeLogo || "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg"} alt="eBay" className="w-full h-full object-contain" />
                                     </div>
                                     <div>
                                         <h4 className="text-base font-black text-white uppercase tracking-tight">eBay Store</h4>
@@ -158,8 +244,8 @@ export default function ProductDetailPage({ params }) {
                                 </div>
                                 <div className="flex items-center gap-8 text-right">
                                     <div className="flex flex-col items-end">
-                                        <span className="text-2xl font-black text-brand-cyan">{product.last_price ? `$${parseFloat(product.last_price).toLocaleString()}` : '—'}</span>
-                                        <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Verified 0h ago</span>
+                                        <span className="text-2xl font-black text-brand-cyan">{product.last_price ? `$${parseFloat(product.last_price).toLocaleString()}` : "—"}</span>
+                                        <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest">Verified Now</span>
                                     </div>
                                     <a
                                         href={product.product_url}
@@ -174,74 +260,20 @@ export default function ProductDetailPage({ params }) {
                             </div>
                         </div>
 
-                        {/* Price History Chart */}
-                        <div className="bg-brand-card border border-brand-border rounded-[2.5rem] p-8 md:p-10 space-y-8 relative overflow-hidden">
-                            <div className="flex items-start justify-between relative z-10">
-                                <div className="space-y-1">
-                                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter italic">Price History</h2>
-                                    <p className="text-gray-500 text-[10px] font-medium uppercase tracking-[0.2em]">Full Performance Analysis</p>
-                                </div>
-                            </div>
-
-                            {priceHistory.length > 0 ? (
-                                <div className="h-[350px] w-full relative z-10">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={priceHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                            <defs>
-                                                <linearGradient id="detailPrice" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.4} />
-                                                    <stop offset="95%" stopColor="#00E5FF" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                            <XAxis
-                                                dataKey="date"
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: '#64748b', fontSize: 10, fontWeight: 800 }}
-                                                dy={10}
-                                            />
-                                            <YAxis
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tick={{ fill: '#64748b', fontSize: 10, fontWeight: 800 }}
-                                            />
-                                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#00E5FF', strokeWidth: 2, strokeDasharray: '5 5' }} />
-                                            <Area
-                                                type="monotone"
-                                                dataKey="price"
-                                                stroke="#00E5FF"
-                                                strokeWidth={4}
-                                                fillOpacity={1}
-                                                fill="url(#detailPrice)"
-                                                animationDuration={1500}
-                                            />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            ) : (
-                                <div className="h-[200px] flex items-center justify-center border-2 border-dashed border-brand-border rounded-3xl">
-                                    <div className="text-center space-y-2">
-                                        <TrendingDown className="w-8 h-8 text-gray-700 mx-auto" />
-                                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Awaiting First Price Entry</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                     </div>
 
-                    {/* Right: Insights & Stats */}
+                    {/* Right Column */}
                     <div className="lg:col-span-4 space-y-6">
                         <div className="bg-brand-card border border-brand-border rounded-3xl p-8 space-y-6">
                             <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Intelligence Report</h4>
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-bold text-gray-400">Current Price</span>
-                                    <span className="text-xl font-black text-white">{product.last_price ? `$${parseFloat(product.last_price).toLocaleString()}` : '—'}</span>
+                                    <span className="text-xl font-black text-white">{product.last_price ? `$${parseFloat(product.last_price).toLocaleString()}` : "—"}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-bold text-gray-400">Status</span>
-                                    <span className="text-[10px] font-black text-emerald-400 uppercase">Steady Market</span>
+                                    <span className={cn("text-[10px] font-black uppercase", trend.color)}>{trend.text}</span>
                                 </div>
                             </div>
                         </div>
@@ -261,15 +293,101 @@ export default function ProductDetailPage({ params }) {
                             </div>
                         </div>
                     </div>
+                    {/* Full Width Chart Card */}
+                    <div className="lg:col-span-12">
+                        <div className="bg-brand-card border border-brand-border rounded-[3rem] pt-8 md:pt-12 pb-12 space-y-8 relative overflow-hidden flex flex-col">
+                            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-8 md:px-12">
+                                <div className="space-y-1">
+                                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic flex items-center gap-3">
+                                        Price Analytics <Activity className="w-5 h-5 text-brand-cyan" />
+                                    </h2>
+                                    <p className="text-gray-500 text-xs font-medium uppercase tracking-widest">Historical Asset Performance</p>
+                                </div>
+
+                                {priceHistory.length > 0 && (
+                                    <div className="flex flex-wrap gap-3">
+                                        <div className="px-4 py-2.5 bg-[#0c1523] border border-brand-border rounded-xl">
+                                            <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Lowest Edge</p>
+                                            <p className="text-base font-black text-white leading-none">${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        </div>
+                                        <div className="px-4 py-2.5 bg-[#0c1523] border border-brand-border rounded-xl">
+                                            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Average Level</p>
+                                            <p className="text-base font-black text-white leading-none">${avgPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        </div>
+                                        <div className="px-4 py-2.5 bg-[#0c1523] border border-brand-border rounded-xl">
+                                            <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Highest Peak</p>
+                                            <p className="text-base font-black text-white leading-none">${maxPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {priceHistory.length > 0 ? (
+                                <div className="h-[400px] w-full relative z-10">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={priceHistory} margin={{ top: 60, right: 40, left: 10, bottom: 30 }}>
+                                            <defs>
+                                                <linearGradient id="detailPrice" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.6} />
+                                                    <stop offset="95%" stopColor="#00E5FF" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={true} opacity={0.3} />
+                                            <ReferenceLine
+                                                y={avgPrice}
+                                                stroke="#64748b"
+                                                strokeDasharray="5 5"
+                                                opacity={0.6}
+                                                label={{
+                                                    position: 'insideBottomRight',
+                                                    value: `AVG: $${avgPrice.toFixed(2)}`,
+                                                    fill: '#64748b',
+                                                    fontSize: 10,
+                                                    fontWeight: 900,
+                                                    offset: 10
+                                                }}
+                                            />
+
+                                            <XAxis
+                                                dataKey="date"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: "#64748b", fontSize: 11, fontWeight: 800 }}
+                                                dy={15}
+                                                padding={{ left: 30, right: 30 }}
+                                            />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: "#64748b", fontSize: 11, fontWeight: 800 }}
+                                                domain={[Math.floor(minPrice - 5), Math.ceil(maxPrice + 5)]}
+                                                width={60}
+                                                allowDecimals={false}
+                                                tickCount={6}
+                                            />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#00E5FF', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="price"
+                                                stroke="#00E5FF"
+                                                strokeWidth={4}
+                                                fill="url(#detailPrice)"
+                                                activeDot={<CustomActiveDot />}
+                                                dot={{ r: 4, fill: "#0c1523", stroke: "#00E5FF", strokeWidth: 2 }}
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="mx-8 md:mx-12 h-[250px] flex items-center justify-center border-2 border-dashed border-brand-border rounded-3xl">
+                                    <p className="text-[12px] font-black text-gray-500 uppercase tracking-widest">Awaiting First Price Entry</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </main>
-
-            <ReactTooltip id="p-tip" style={{ backgroundColor: '#0c1523', padding: '8px 12px', fontSize: '11px', fontWeight: 'bold' }} border="1px solid #1e293b" />
+            <ReactTooltip id="p-tip" style={{ backgroundColor: "#0c1523" }} />
         </div>
     );
 }
-
-const CheckCircle2 = ({ className }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" /></svg>
-);
-

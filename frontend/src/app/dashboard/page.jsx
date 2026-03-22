@@ -66,18 +66,34 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`);
       const result = await res.json();
       if (result.success) {
-        const mapped = result.data.map(p => ({
-          id: p.id,
-          name: p.name,
-          productImage: p.image_url || null,
-          category: p.category || '—',
-          price: p.last_price ? `$${parseFloat(p.last_price).toLocaleString()}` : '—',
-          updated: p.last_updated ? new Date(p.last_updated).toLocaleDateString() : 'Syncing...',
-          store: 'eBay',
-          storeLogo: EBAY_LOGO,
-          trend: 'steady',
-          change: '0%'
-        }));
+        const mapped = result.data.map(p => {
+          const current = p.last_price ? parseFloat(p.last_price) : null;
+          const prev = p.prev_price ? parseFloat(p.prev_price) : null;
+
+          let trend = 'steady';
+          let pctChange = '0';
+
+          if (current && prev) {
+            if (current < prev) trend = 'down';
+            else if (current > prev) trend = 'up';
+
+            pctChange = (((current - prev) / prev) * 100).toFixed(1);
+          }
+
+          return {
+            id: p.id,
+            name: p.name,
+            productImage: p.image_url || null,
+            category: p.category || '—',
+            price: current ? `$${current.toLocaleString()}` : '—',
+            updated: p.last_updated ? new Date(p.last_updated).toLocaleDateString() : 'Syncing...',
+            store: 'eBay',
+            storeLogo: EBAY_LOGO,
+            trend: trend,
+            change: `${pctChange}%`,
+            url: p.product_url || '#'
+          }
+        });
         setProductsList(mapped);
         setLastUpdated(new Date());
       }
@@ -257,14 +273,12 @@ export default function Dashboard() {
                           </div>
                           <div className="flex flex-col gap-0.5">
                             <span className="font-bold text-white group-hover:text-brand-cyan transition-colors">{p.name}</span>
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex items-center gap-1.5 mt-1.5">
                               {p.storeLogo && (
-                                <div className="w-4 h-4 bg-white rounded-sm flex items-center justify-center p-0.5">
-                                  <img src={p.storeLogo} alt={p.store} className="w-full h-full object-contain" />
+                                <div className="h-4 bg-white rounded flex items-center justify-center px-1">
+                                  <img src={p.storeLogo} alt={p.store} className="h-3 w-auto object-contain" />
                                 </div>
                               )}
-                              <span className="text-[10px] text-gray-500 uppercase font-black tracking-wider">{p.store}</span>
-
                             </div>
                           </div>
                         </div>
