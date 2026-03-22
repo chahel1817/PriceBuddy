@@ -5,6 +5,8 @@ const pool = require('./db');
 const { URL } = require('url');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const cron = require('node-cron');
+const nodemailer = require('nodemailer');
 
 dotenv.config();
 
@@ -42,8 +44,12 @@ app.get('/test-db', async (req, res) => {
 app.get('/products', async (req, res) => {
     try {
         const { user_id } = req.query;
+        // In this join, we also fetch the second-to-last price point from history to calculate trend
         let query = `
-            SELECT p.*, s.product_url, s.last_price 
+            SELECT p.*, s.id as source_id, s.product_url, s.last_price,
+            (SELECT ph.price FROM price_history ph 
+             WHERE ph.product_source_id = s.id 
+             ORDER BY ph.scraped_at DESC LIMIT 1 OFFSET 1) as prev_price
             FROM products p 
             LEFT JOIN product_sources s ON p.id = s.product_id 
         `;
@@ -551,6 +557,76 @@ app.post(['/login', '/api/login'], async (req, res) => {
     } catch (error) {
         console.error("Login Error:", error);
         res.status(500).json({ success: false, message: "Server error during login." });
+    }
+});
+
+// ── Automated Price Pulse (every 6 hours) ───────────────────────────
+cron.schedule('0 */6 * * *', async () => {
+    console.log('⏰ Pulsing: Checking tracked products for market changes & price drops...');
+
+    // 1. Setup Email Transporter (Gmail ready)
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+        }
+    });
+
+    try {
+        // Fetch products, their previous prices, and the user's email for alerts
+        const [rows] = await pool.query(`
+            SELECT s.id, s.product_url, s.last_price as old_price, p.name, u.email as user_email
+            FROM product_sources s
+            JOIN products p ON s.product_id = p.id
+            JOIN users u ON p.user_id = u.id
+        `);
+
+        for (const row of rows) {
+            const freshPrice = await scrapeEbayPrice(row.product_url);
+
+            if (freshPrice) {
+                const oldPrice = parseFloat(row.old_price);
+                const currentPrice = parseFloat(freshPrice);
+
+                // Update database
+                await pool.query('UPDATE product_sources SET last_price = ? WHERE id = ?', [currentPrice, row.id]);
+                await pool.query('INSERT INTO price_history (product_source_id, price) VALUES (?, ?)', [row.id, currentPrice]);
+
+                // PRICE DROP DETECTION!
+                if (oldPrice && currentPrice < oldPrice) {
+                    const savings = (oldPrice - currentPrice).toFixed(2);
+                    console.log(`📉 ALERT: Price Drop for ${row.name}! Sending email to ${row.user_email}`);
+
+                    const mailOptions = {
+                        from: `"PriceBuddy Alerts" <${process.env.EMAIL_USER}>`,
+                        to: row.user_email,
+                        subject: `📉 PRICE DROP ALERT: ${row.name} just got cheaper!`,
+                        html: `
+                            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                                <h2 style="color: #00E5FF;">Good News from PriceBuddy!</h2>
+                                <p>We just found a price drop for a product you're tracking:</p>
+                                <hr />
+                                <h3 style="margin: 0;">${row.name}</h3>
+                                <p style="font-size: 18px;">
+                                    Old Price: <span style="text-decoration: line-through; color: #888;">$${oldPrice.toLocaleString()}</span><br />
+                                    <b>New Price: <span style="color: #10b981;">$${currentPrice.toLocaleString()}</span></b>
+                                </p>
+                                <p style="color: #10b981; font-weight: bold;">You save $${savings}!</p>
+                                <a href="${row.product_url}" style="display: inline-block; padding: 12px 25px; background: #00E5FF; color: #000; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px;">Buy Now on eBay</a>
+                                <p style="margin-top: 30px; font-size: 11px; color: #999;">You're receiving this because you're tracking this item on PriceBuddy.</p>
+                            </div>
+                        `
+                    };
+
+                    await transporter.sendMail(mailOptions);
+                }
+
+                console.log(`✅ Pulse Update: Source ${row.id} checked. New price: $${currentPrice}`);
+            }
+        }
+    } catch (e) {
+        console.error('Pulse Sync/Email Error:', e);
     }
 });
 
