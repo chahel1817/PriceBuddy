@@ -12,6 +12,7 @@ import {
 import Navbar from "@/components/Navbar";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
+import { useRouter } from 'next/navigation';
 import AddProductModal from "@/components/AddProductModal";
 
 const StatCard = ({ title, value, change, isPositive, icon: Icon }) => (
@@ -47,6 +48,7 @@ export default function Dashboard() {
   const [productsList, setProductsList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [lastUpdated, setLastUpdated] = React.useState(null);
+  const router = useRouter();
 
   const ranges = ['7D', '1M', '3M', '6M', '1Y'];
 
@@ -341,6 +343,7 @@ export default function Dashboard() {
             <div><h4 className="font-bold text-white text-sm uppercase tracking-wider">Add Product</h4><p className="text-gray-500 text-xs mt-1">Start tracking a new product</p></div>
           </div>
           <div
+            onClick={() => router.push('/products')}
             className="bg-brand-card border border-brand-border p-6 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-brand-bg/50 hover:border-brand-cyan/30 transition-all group"
             data-tooltip-id="global-tooltip"
             data-tooltip-content="Configure price drop notifications"
@@ -349,6 +352,7 @@ export default function Dashboard() {
             <div><h4 className="font-bold text-white text-sm uppercase tracking-wider">Set Alert</h4><p className="text-gray-500 text-xs mt-1">Get notified on price drops</p></div>
           </div>
           <div
+            onClick={() => router.push('/analytics')}
             className="bg-brand-card border border-brand-border p-6 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-brand-bg/50 hover:border-brand-cyan/30 transition-all group"
             data-tooltip-id="global-tooltip"
             data-tooltip-content="Download detailed analysis"

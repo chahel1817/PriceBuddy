@@ -9,6 +9,7 @@ import Navbar from "@/components/Navbar";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import AddProductModal from "@/components/AddProductModal";
+import DeleteProductModal from "@/components/DeleteProductModal";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
 
@@ -18,6 +19,8 @@ export default function ProductsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [productToDelete, setProductToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const router = useRouter();
 
@@ -78,22 +81,29 @@ export default function ProductsPage() {
 
     const handleRefresh = () => fetchProducts();
 
-    const handleDelete = async (e, id) => {
+    const handleDeleteClick = (e, product) => {
         e.stopPropagation();
-        if (window.confirm("Are you sure you want to stop tracking this product?")) {
-            try {
-                const user = JSON.parse(localStorage.getItem('user'));
-                const userId = user?.id;
-                const res = await fetch(`${API_BASE_URL}/products/${id}?user_id=${userId}`, {
-                    method: 'DELETE',
-                });
-                const result = await res.json();
-                if (result.success) {
-                    setProducts(products.filter(p => p.id !== id));
-                }
-            } catch (error) {
-                console.error("Delete error:", error);
+        setProductToDelete(product);
+    };
+
+    const confirmDelete = async () => {
+        if (!productToDelete) return;
+        setIsDeleting(true);
+        try {
+            const user = JSON.parse(localStorage.getItem('user'));
+            const userId = user?.id;
+            const res = await fetch(`${API_BASE_URL}/products/${productToDelete.id}?user_id=${userId}`, {
+                method: 'DELETE',
+            });
+            const result = await res.json();
+            if (result.success) {
+                setProducts(products.filter(p => p.id !== productToDelete.id));
+                setProductToDelete(null);
             }
+        } catch (error) {
+            console.error("Delete error:", error);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -265,7 +275,7 @@ export default function ProductsPage() {
                                                         <Eye className="w-4 h-4 text-gray-500 group-hover/btn:text-brand-cyan" />
                                                     </button>
                                                     <button
-                                                        onClick={(e) => handleDelete(e, p.id)}
+                                                        onClick={(e) => handleDeleteClick(e, p)}
                                                         className="p-2 hover:bg-rose-500/10 rounded-lg transition-colors group/btn"
                                                         data-tooltip-id="p-tip"
                                                         data-tooltip-content="Delete Product"
@@ -287,6 +297,14 @@ export default function ProductsPage() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={handleRefresh}
+            />
+
+            <DeleteProductModal
+                isOpen={!!productToDelete}
+                onClose={() => setProductToDelete(null)}
+                onConfirm={confirmDelete}
+                productName={productToDelete?.name}
+                isDeleting={isDeleting}
             />
 
             <ReactTooltip id="p-tip" style={{ backgroundColor: '#0c1523', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold' }} border="1px solid #1e293b" />

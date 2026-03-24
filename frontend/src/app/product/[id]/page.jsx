@@ -18,12 +18,20 @@ export default function ProductDetailPage({ params }) {
     const router = useRouter();
     const [product, setProduct] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
+    const [showAlertModal, setShowAlertModal] = React.useState(false);
+    const [userEmail, setUserEmail] = React.useState("");
 
     const productId = resolvedParams.id;
 
     React.useEffect(() => {
         const fetchDetail = async () => {
             try {
+                const storedUser = localStorage.getItem('user');
+                if (storedUser) {
+                    const parsed = JSON.parse(storedUser);
+                    setUserEmail(parsed.email || "your email");
+                }
+
                 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
                 const res = await fetch(`${API_BASE_URL}/products/${productId}`);
                 const result = await res.json();
@@ -87,49 +95,6 @@ export default function ProductDetailPage({ params }) {
     const minPrice = validPrices.length ? Math.min(...validPrices) : 0;
     const maxPrice = validPrices.length ? Math.max(...validPrices) : 0;
     const avgPrice = validPrices.length ? (validPrices.reduce((a, b) => a + b, 0) / validPrices.length) : 0;
-
-    const CustomActiveDot = (props) => {
-        const { cx, cy, payload } = props;
-        if (!cx || !cy) return null;
-
-        return (
-            <g>
-                {/* Glow effect */}
-                <circle cx={cx} cy={cy} r={12} fill="#00E5FF" fillOpacity={0.15} />
-                {/* Main dot */}
-                <circle cx={cx} cy={cy} r={7} fill="#0c1523" stroke="#00E5FF" strokeWidth={3} />
-
-                {/* Floating Price Tag */}
-                <g transform={`translate(${cx}, ${cy - 25})`}>
-                    <rect
-                        x="-35"
-                        y="-22"
-                        width="70"
-                        height="24"
-                        rx="8"
-                        fill="#00E5FF"
-                        className="shadow-xl"
-                    />
-                    <path
-                        d="M -5 2 L 0 7 L 5 2"
-                        fill="#00E5FF"
-                    />
-                    <text
-                        x="0"
-                        y="-6"
-                        textAnchor="middle"
-                        fill="#0c1523"
-                        fontSize="11"
-                        fontWeight="900"
-                        fontFamily="inherit"
-                        pointerEvents="none"
-                    >
-                        ${(payload?.price || props.value)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </text>
-                </g>
-            </g>
-        );
-    };
 
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
@@ -287,7 +252,10 @@ export default function ProductDetailPage({ params }) {
                                 </p>
                             </div>
                             <div className="pt-6 border-t border-brand-border/30 relative z-10">
-                                <button className="w-full py-4 bg-brand-bg border border-brand-border rounded-2xl flex items-center justify-center gap-2 text-xs font-black text-white hover:bg-brand-cyan hover:text-brand-bg hover:border-brand-cyan transition-all uppercase tracking-widest shadow-lg">
+                                <button
+                                    onClick={() => setShowAlertModal(true)}
+                                    className="w-full py-4 bg-brand-bg border border-brand-border rounded-2xl flex items-center justify-center gap-2 text-xs font-black text-white hover:bg-brand-cyan hover:text-brand-bg hover:border-brand-cyan transition-all uppercase tracking-widest shadow-lg"
+                                >
                                     <Bell className="w-4 h-4" /> Set Alert
                                 </button>
                             </div>
@@ -372,7 +340,20 @@ export default function ProductDetailPage({ params }) {
                                                 stroke="#00E5FF"
                                                 strokeWidth={4}
                                                 fill="url(#detailPrice)"
-                                                activeDot={<CustomActiveDot />}
+                                                activeDot={(props) => {
+                                                    const { cx, cy, payload } = props;
+                                                    if (!cx || !cy || !payload) return null;
+                                                    return (
+                                                        <g>
+                                                            <circle cx={cx} cy={cy} r={6} fill="#0c1523" stroke="#00E5FF" strokeWidth={3} />
+                                                            <rect x={cx - 30} y={cy - 30} width={60} height={20} rx={4} fill="#00E5FF" />
+                                                            <path d={`M ${cx - 4} ${cy - 10} L ${cx} ${cy - 5} L ${cx + 4} ${cy - 10}`} fill="#00E5FF" />
+                                                            <text x={cx} y={cy - 16} textAnchor="middle" fill="#0c1523" fontSize="11" fontWeight="900" fontFamily="inherit" pointerEvents="none">
+                                                                ${payload.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
                                                 dot={{ r: 4, fill: "#0c1523", stroke: "#00E5FF", strokeWidth: 2 }}
                                             />
                                         </AreaChart>
@@ -388,6 +369,28 @@ export default function ProductDetailPage({ params }) {
                 </div>
             </main>
             <ReactTooltip id="p-tip" style={{ backgroundColor: "#0c1523" }} />
+
+            {/* Alert Confirmation Modal */}
+            {showAlertModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowAlertModal(false)} />
+                    <div className="relative bg-[#0c1829] border border-brand-cyan/20 p-8 rounded-[2rem] shadow-[0_0_50px_rgba(0,229,255,0.1)] max-w-sm w-full text-center animate-in zoom-in-95 fade-in duration-200">
+                        <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-brand-cyan/20">
+                            <Bell className="w-8 h-8 text-brand-cyan" />
+                        </div>
+                        <h3 className="text-white font-black uppercase tracking-tight text-lg mb-3 italic">Alert Activated!</h3>
+                        <p className="text-gray-400 text-[11px] leading-relaxed font-medium uppercase tracking-[0.05em] mb-8">
+                            You'll receive an email at <span className="text-brand-cyan font-black">{userEmail}</span> as soon as the price fluctuates.
+                        </p>
+                        <button
+                            onClick={() => setShowAlertModal(false)}
+                            className="w-full py-3 bg-brand-cyan text-brand-bg font-black rounded-xl text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-brand-cyan/20"
+                        >
+                            Understood
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

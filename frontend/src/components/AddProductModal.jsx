@@ -123,6 +123,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
     const [category, setCategory] = useState('All');
     const [addedCount, setAddedCount] = useState(0);
     const [activeHint, setActiveHint] = useState(null);
+    const [showNotificationInfo, setShowNotificationInfo] = useState(false);
 
     const inputRef = useRef(null);
 
@@ -186,6 +187,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
             if (result.success) {
                 setTrackedIds(prev => new Set([...prev, product.id]));
                 setAddedCount(prev => prev + 1);
+                setShowNotificationInfo(true);
                 if (onSuccess) onSuccess();
             }
         } catch (err) {
@@ -319,6 +321,27 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
 
                     {/* Divider */}
                     <div className="mt-5 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+
+                    {/* Email Alert Banner */}
+                    {showNotificationInfo && (
+                        <div className="mt-4 flex items-center justify-between p-3.5 bg-brand-cyan/10 border border-brand-cyan/20 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-500">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-brand-cyan/20 rounded-xl">
+                                    <Zap className="w-4 h-4 text-brand-cyan shadow-sm" />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-black text-white uppercase tracking-wider">Email Alerts Activated</p>
+                                    <p className="text-[10px] text-gray-500 font-medium">We'll notify you the moment a price drop is detected.</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowNotificationInfo(false)}
+                                className="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest px-2"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── RESULTS AREA ──────────────────────────────────────────── */}
