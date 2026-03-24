@@ -82,6 +82,28 @@ app.get('/api/products', async (req, res) => {
  * Normalize hostname for comparison.
  * Adds protocol when missing and strips common www prefix.
  */
+/**
+ * Strip tracking and search parameters from URLs to keep database clean.
+ */
+const cleanUrl = (value) => {
+    if (!value) return null;
+    try {
+        const url = new URL(value.startsWith('http') ? value : `https://${value}`);
+        // For eBay, we really only need the item ID for scraping
+        if (url.hostname.includes('ebay')) {
+            const itmMatch = url.pathname.match(/\/itm\/(\d+)/);
+            if (itmMatch) {
+                return `https://www.ebay.com/itm/${itmMatch[1]}`;
+            }
+        }
+        // General cleaning: Strip query params except for common IDs
+        url.search = '';
+        return url.toString();
+    } catch (err) {
+        return value;
+    }
+};
+
 const getHostname = (value) => {
     if (!value) return null;
     try {
@@ -161,6 +183,7 @@ app.post(['/products', '/api/products'], async (req, res) => {
         });
     }
 
+    const cleanedUrl = cleanUrl(url);
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -177,7 +200,7 @@ app.post(['/products', '/api/products'], async (req, res) => {
         const initialPrice = await scrapeEbayPrice(url);
 
         const sourceQuery = "INSERT INTO product_sources (product_id, website_id, product_url, last_price) VALUES (?, ?, ?, ?)";
-        const [sourceResult] = await connection.query(sourceQuery, [productId, websiteId, url, initialPrice]);
+        const [sourceResult] = await connection.query(sourceQuery, [productId, websiteId, cleanedUrl, initialPrice]);
         const sourceId = sourceResult.insertId;
 
         // 3. Record history if price found (use product_source_id)
