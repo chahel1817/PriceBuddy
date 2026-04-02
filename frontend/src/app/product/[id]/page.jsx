@@ -32,7 +32,7 @@ export default function ProductDetailPage({ params }) {
                     setUserEmail(parsed.email || "your email");
                 }
 
-                const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
+                const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
                 const res = await fetch(`${API_BASE_URL}/products/${productId}`);
                 const result = await res.json();
                 if (result.success) {
@@ -185,7 +185,7 @@ export default function ProductDetailPage({ params }) {
                                     <div className="flex items-center gap-4 text-gray-500">
                                         <div className="flex items-center gap-1.5">
                                             <Globe className="w-4 h-4 text-brand-cyan" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">1 Store Tracked (eBay)</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest">1 Store Tracked ({product.store || 'Store'})</span>
                                         </div>
                                     </div>
                                 </div>
@@ -203,7 +203,7 @@ export default function ProductDetailPage({ params }) {
                                         <img src={product.storeLogo || "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg"} alt="eBay" className="w-full h-full object-contain" />
                                     </div>
                                     <div>
-                                        <h4 className="text-base font-black text-white uppercase tracking-tight">eBay Store</h4>
+                                        <h4 className="text-base font-black text-white uppercase tracking-tight">{product.store || 'Store'}</h4>
                                         <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Best Market Price</span>
                                     </div>
                                 </div>
@@ -248,7 +248,7 @@ export default function ProductDetailPage({ params }) {
                             <div className="space-y-2 relative z-10">
                                 <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter underline decoration-brand-cyan/20">Market Insight</h3>
                                 <p className="text-gray-500 text-xs font-medium leading-relaxed uppercase tracking-wide">
-                                    This product is currently listed on eBay. We are monitoring for any price dips or clearance events.
+                                    This product is currently listed on {product.store || 'a marketplace'}. We are monitoring for any price dips or clearance events.
                                 </p>
                             </div>
                             <div className="pt-6 border-t border-brand-border/30 relative z-10">

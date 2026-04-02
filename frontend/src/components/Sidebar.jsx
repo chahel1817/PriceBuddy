@@ -29,7 +29,7 @@ export default function Sidebar() {
 
     const handleLogout = () => {
         localStorage.removeItem('user');
-        router.push('/login');
+        router.push('/');
     };
 
     return (

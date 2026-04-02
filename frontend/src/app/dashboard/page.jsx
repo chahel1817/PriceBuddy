@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import { useRouter } from 'next/navigation';
 import AddProductModal from "@/components/AddProductModal";
+import OnboardingModal from "@/components/OnboardingModal";
 
 const StatCard = ({ title, value, change, isPositive, icon: Icon }) => (
   <div className="bg-brand-card border border-brand-border p-6 rounded-2xl hover:border-brand-cyan/30 transition-all group">
@@ -40,7 +41,8 @@ const StatCard = ({ title, value, change, isPositive, icon: Icon }) => (
 );
 
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+
 
 export default function Dashboard() {
   const [range, setRange] = React.useState('1M');
@@ -48,6 +50,7 @@ export default function Dashboard() {
   const [productsList, setProductsList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [lastUpdated, setLastUpdated] = React.useState(null);
+  const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
   const router = useRouter();
 
   const ranges = ['7D', '1M', '3M', '6M', '1Y'];
@@ -63,52 +66,60 @@ export default function Dashboard() {
         return;
       }
 
-      const EBAY_LOGO = "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg";
-
-      const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`);
+      const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`, { cache: 'no-store' });
       const result = await res.json();
       if (result.success) {
         const mapped = result.data.map(p => {
-          const current = p.last_price ? parseFloat(p.last_price) : null;
-          const prev = p.prev_price ? parseFloat(p.prev_price) : null;
+          let prev = null;
+          let trendType = 'neutral';
+          let percentage = "0%";
 
-          let trend = 'steady';
-          let pctChange = '0';
+          if (p.history && p.history.length > 0) {
+            const last = parseFloat(p.history[0].price);
+            const beforeLast = p.history.length > 1 ? parseFloat(p.history[1].price) : last;
 
-          if (current && prev) {
-            if (current < prev) trend = 'down';
-            else if (current > prev) trend = 'up';
-
-            pctChange = (((current - prev) / prev) * 100).toFixed(1);
+            if (last < beforeLast) {
+              trendType = 'down';
+              percentage = ((beforeLast - last) / beforeLast * 100).toFixed(0) + '%';
+            } else if (last > beforeLast) {
+              trendType = 'up';
+              percentage = ((last - beforeLast) / beforeLast * 100).toFixed(0) + '%';
+            }
           }
 
           return {
             id: p.id,
             name: p.name,
             productImage: p.image_url || null,
-            category: p.category || '—',
-            price: current ? `$${current.toLocaleString()}` : '—',
-            updated: p.last_updated ? new Date(p.last_updated).toLocaleDateString() : 'Syncing...',
-            store: 'eBay',
-            storeLogo: EBAY_LOGO,
-            trend: trend,
-            change: `${pctChange}%`,
-            url: p.product_url || '#'
-          }
+            category: p.category,
+            price: p.last_price ? `$${parseFloat(p.last_price).toLocaleString()}` : 'Syncing...',
+            prevPrice: prev,
+            trend: trendType,
+            change: percentage,
+            updated: p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Syncing...',
+            store: p.store || 'Marketplace',
+            storeLogo: p.storeLogo
+          };
         });
         setProductsList(mapped);
-        setLastUpdated(new Date());
       }
     } catch (e) {
-      console.error("Dashboard fetch error:", e);
-      setProductsList([]);
+      console.error(e);
     } finally {
       setLoading(false);
+      setLastUpdated(new Date());
     }
   }, []);
 
   React.useEffect(() => {
     fetchProducts();
+    if (typeof window !== "undefined") {
+      const shown = localStorage.getItem("onboardingShown");
+      if (!shown) {
+        setIsOnboardingOpen(true);
+        localStorage.setItem("onboardingShown", "true");
+      }
+    }
   }, [fetchProducts]);
 
   return (
@@ -228,7 +239,7 @@ export default function Dashboard() {
           <div className="p-6 flex items-center justify-between border-b border-brand-border/50">
             <div className="flex flex-col gap-1">
               <h3 className="font-bold text-white uppercase tracking-wider text-sm">Recently Tracked Products</h3>
-              <p className="text-gray-500 text-xs">Monitor live price changes directly from eBay</p>
+              <p className="text-gray-500 text-xs">Monitor live price changes from Amazon & eBay</p>
             </div>
             <button className="text-[10px] font-bold text-brand-cyan hover:underline tracking-widest uppercase">View All Products</button>
           </div>
@@ -377,6 +388,11 @@ export default function Dashboard() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchProducts}
+      />
+
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
       />
 
       <ReactTooltip

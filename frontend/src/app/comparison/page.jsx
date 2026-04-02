@@ -21,13 +21,16 @@ export default function ComparisonPage() {
                 return;
             }
 
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+
             const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`);
             const result = await res.json();
             if (result.success) {
                 const mapped = result.data.map(p => ({
                     ...p,
                     price: p.last_price ? `$${parseFloat(p.last_price).toLocaleString()}` : 'Syncing...',
+                    store: p.store || 'Store',
+                    storeLogo: p.storeLogo || EBAY_LOGO,
                 }));
                 setProducts(mapped);
             }
@@ -94,10 +97,10 @@ export default function ComparisonPage() {
                                     </div>
                                     <div className="flex flex-col items-center text-center">
                                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-2 mb-2 border border-brand-border shadow-sm">
-                                            <img src={EBAY_LOGO} alt="eBay" className="w-full h-full object-contain" />
+                                            <img src={product.storeLogo} alt={product.store} className="w-full h-full object-contain" />
                                         </div>
                                         <p className="text-2xl font-black text-brand-cyan">{product.price}</p>
-                                        <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-1">Live from eBay</p>
+                                        <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-1">Live from {product.store}</p>
                                     </div>
                                     <button
                                         onClick={() => window.location.href = `/product/${product.id}`}

@@ -17,7 +17,7 @@ export default function AnalyticsPage() {
                 const user = JSON.parse(localStorage.getItem('user'));
                 if (!user?.id) return;
 
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001"}/products?user_id=${user.id}`);
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/products?user_id=${user.id}`);
                 const result = await res.json();
 
                 if (result.success && result.data.length > 0) {
@@ -136,9 +136,13 @@ export default function AnalyticsPage() {
                         <div className="flex flex-col items-center gap-2">
                             <div className="flex items-center gap-2 px-4 py-2 bg-brand-cyan/5 border border-brand-cyan/20 rounded-xl">
                                 <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
-                                <span className="text-[10px] font-black text-brand-cyan uppercase tracking-widest underline underline-offset-4 ring-offset-brand-bg">eBay Gateway: Active</span>
+                                <span className="text-[10px] font-black text-brand-cyan uppercase tracking-widest">eBay Gateway: Active</span>
                             </div>
-                            <p className="text-[10px] text-gray-600 font-medium">System is monitoring price fluctuations every 12 hours.</p>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-amber-400/5 border border-amber-400/20 rounded-xl">
+                                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                                <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Amazon Gateway: Active</span>
+                            </div>
+                            <p className="text-[10px] text-gray-600 font-medium">System is monitoring price fluctuations daily.</p>
                         </div>
                     </div>
                 </div>

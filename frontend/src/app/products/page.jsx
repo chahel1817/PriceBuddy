@@ -11,7 +11,7 @@ import { Tooltip as ReactTooltip } from 'react-tooltip';
 import AddProductModal from "@/components/AddProductModal";
 import DeleteProductModal from "@/components/DeleteProductModal";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
 export default function ProductsPage() {
     const [products, setProducts] = useState([]);
@@ -34,8 +34,6 @@ export default function ProductsPage() {
                 setProducts([]);
                 return;
             }
-
-            const EBAY_LOGO = "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg";
 
             const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`, { cache: "no-store" });
             if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -61,7 +59,7 @@ export default function ProductsPage() {
                         prevPrice: prev,
                         trend: trendType,
                         updated: p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Syncing...',
-                        stores: [{ name: 'eBay', logo: EBAY_LOGO }],
+                        stores: [{ name: p.store || 'Store', logo: p.storeLogo || null }],
                         url: p.product_url || "#"
                     };
                 });

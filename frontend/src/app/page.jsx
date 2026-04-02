@@ -27,7 +27,7 @@ export default function LandingPage() {
       >
         <div className="flex items-center gap-3 px-4 py-1.5 bg-brand-cyan/10 border border-brand-cyan/20 rounded-full">
           <Zap className="w-3 h-3 text-brand-cyan animate-pulse" />
-          <span className="text-[10px] font-black text-brand-cyan uppercase tracking-[0.4em]">Real-Time Data Engine</span>
+          <span className="text-[14px] font-black text-brand-cyan uppercase tracking-[0.4em]">Real-Time Data Engine</span>
         </div>
       </div>
 
@@ -87,6 +87,7 @@ export default function LandingPage() {
           <div className="absolute inset-x-0 bottom-0 h-1 bg-brand-cyan translate-y-full group-hover:translate-y-0 transition-transform" />
         </Link>
       </div>
+
 
       {/* Inline CSS - Optimization */}
       <style dangerouslySetInnerHTML={{

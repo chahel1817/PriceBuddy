@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
 const CATEGORIES = ['All', 'Smartphones', 'Laptops', 'Audio', 'Electronics', 'Gaming', 'Footwear', 'Home'];
 const HINTS = ['RTX 4090', 'iPhone 15', 'AirPods Pro', 'Samsung Galaxy S24', 'MacBook Pro M3'];
@@ -30,6 +30,12 @@ function SkeletonCard() {
 // ── Product Card (Grid) ────────────────────────────────────────────────────────
 function ProductCard({ product, onTrack, isTracked, isTracking }) {
     const [imgErr, setImgErr] = useState(false);
+    const store = product.store || 'Store';
+    const badgeTone = store.toLowerCase().includes('amazon')
+        ? 'bg-amber-400 text-black border-amber-300'
+        : store.toLowerCase().includes('flipkart')
+            ? 'bg-blue-500 text-white border-blue-400'
+            : 'bg-brand-cyan text-brand-bg border-brand-cyan/80';
 
     return (
         <div className={cn(
@@ -58,9 +64,9 @@ function ProductCard({ product, onTrack, isTracked, isTracking }) {
                 ) : (
                     <PackageSearch className="w-12 h-12 text-gray-300" />
                 )}
-                {/* eBay badge */}
-                <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-brand-cyan/90 backdrop-blur-sm rounded text-[8px] font-black text-brand-bg uppercase tracking-widest">
-                    eBay
+                {/* Store badge */}
+                <div className={cn("absolute bottom-2 left-2 px-1.5 py-0.5 backdrop-blur-sm rounded text-[8px] font-black uppercase tracking-widest border", badgeTone)}>
+                    {store}
                 </div>
             </div>
 
@@ -71,7 +77,7 @@ function ProductCard({ product, onTrack, isTracked, isTracking }) {
                         {product.name}
                     </p>
                     <div className="flex items-center gap-2">
-                        <span className="text-base font-black text-brand-cyan tracking-tight">{product.price}</span>
+                        <span className="text-base font-black text-brand-cyan tracking-tight">{product.price || '—'}</span>
                     </div>
                 </div>
 
@@ -230,7 +236,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                 <ShoppingBag className="w-5 h-5 text-brand-cyan" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-white tracking-tight">Track eBay Products</h2>
+                                <h2 className="text-lg font-black text-white tracking-tight">Track Amazon & eBay Products</h2>
                                 <p className="text-[11px] text-gray-500 font-medium">Search live listings and add them to your price tracker</p>
                             </div>
                         </div>
@@ -262,7 +268,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                 <input
                                     ref={inputRef}
                                     type="text"
-                                    placeholder="Search eBay — iPhone 15, RTX 4090, AirPods Pro..."
+                                    placeholder="Search Amazon & eBay — iPhone 15, RTX 4090, AirPods Pro..."
                                     className="flex-1 bg-transparent py-3.5 pr-3 text-sm text-white placeholder:text-gray-700 font-medium focus:outline-none"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
@@ -356,7 +362,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                         <div key={i} className="w-1.5 h-1.5 rounded-full bg-brand-cyan animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                                     ))}
                                 </div>
-                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Scanning eBay live listings...</span>
+                                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Scanning Amazon & eBay live listings...</span>
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
@@ -384,7 +390,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                 </div>
                             </div>
                             <p className="text-sm font-bold text-gray-300 mb-1">Search any product to begin</p>
-                            <p className="text-xs text-gray-600 max-w-xs">Get real-time prices from millions of eBay listings and track them directly in your dashboard</p>
+                            <p className="text-xs text-gray-600 max-w-xs">Get real-time prices from millions of Amazon & eBay listings and track them directly in your dashboard</p>
                         </div>
                     )}
 
