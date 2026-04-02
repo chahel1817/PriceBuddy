@@ -10,65 +10,14 @@ const nodemailer = require('nodemailer');
 
 dotenv.config();
 
-// Handle process-level errors to prevent crashes
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
-});
-process.on('uncaughtException', (error) => {
-    console.error('💥 Uncaught Exception:', error);
-});
-
-
-const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY; // e.g., scraperapi.com key for Amazon/Flipkart bypass
-const SERPAPI_KEY = process.env.SERPAPI_KEY; // Optional Amazon product API via SerpApi
-const AMAZON_DOMAIN = process.env.AMAZON_DOMAIN || 'amazon.com';
-const PULSE_CRON = process.env.PULSE_CRON || '0 */6 * * *'; // default every 6 hours
-const SERPAPI_DAILY_CAP = parseInt(process.env.SERPAPI_DAILY_CAP || '2', 10); // cap cron calls per day
-const SERPAPI_MONTHLY_LIMIT = parseInt(process.env.SERPAPI_MONTHLY_LIMIT || '250', 10);
 const app = express();
 const PORT = process.env.PORT || 5001;
-
-// ── SerpAPI Monthly Usage Tracker ────────────────────────────────
-// Resets automatically on the 1st of each month
-let serpapiMonthlyUsage = { count: 0, month: new Date().getMonth() };
-
-function canUseSerpApi() {
-    const currentMonth = new Date().getMonth();
-    if (currentMonth !== serpapiMonthlyUsage.month) {
-        serpapiMonthlyUsage = { count: 0, month: currentMonth };
-        console.log('📅 SerpAPI monthly counter reset.');
-    }
-    return serpapiMonthlyUsage.count < SERPAPI_MONTHLY_LIMIT;
-}
-
-function trackSerpApiCall() {
-    const currentMonth = new Date().getMonth();
-    if (currentMonth !== serpapiMonthlyUsage.month) {
-        serpapiMonthlyUsage = { count: 0, month: currentMonth };
-    }
-    serpapiMonthlyUsage.count++;
-    console.log(`📊 SerpAPI usage: ${serpapiMonthlyUsage.count}/${SERPAPI_MONTHLY_LIMIT} this month`);
-}
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 const EBAY_LOGO = "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg";
-const AMAZON_LOGO = "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg";
-const FLIPKART_LOGO = "https://upload.wikimedia.org/wikipedia/en/7/7a/Flipkart_logo.svg";
-
-/**
- * Detect store name and logo from a product URL.
- */
-function detectStore(productUrl) {
-    if (!productUrl) return { store: 'Unknown', storeLogo: null };
-    const host = (getHostname(productUrl) || '').toLowerCase();
-    if (host.includes('amazon')) return { store: 'Amazon', storeLogo: AMAZON_LOGO };
-    if (host.includes('flipkart')) return { store: 'Flipkart', storeLogo: FLIPKART_LOGO };
-    if (host.includes('ebay')) return { store: 'eBay', storeLogo: EBAY_LOGO };
-    return { store: host.split('.')[0] || 'Store', storeLogo: null };
-}
 
 // Request Logger
 app.use((req, res, next) => {
@@ -111,15 +60,8 @@ app.get('/products', async (req, res) => {
         }
         query += " ORDER BY p.id DESC";
 
-
-
         const [rows] = await pool.query(query, params);
-        // Enrich each row with detected store info
-        const enriched = rows.map(r => {
-            const { store, storeLogo } = detectStore(r.product_url);
-            return { ...r, store, storeLogo };
-        });
-        res.json({ success: true, count: enriched.length, data: enriched });
+        res.json({ success: true, count: rows.length, data: rows });
     } catch (error) {
         console.error("Error in GET /products:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -154,20 +96,6 @@ const cleanUrl = (value) => {
                 return `https://www.ebay.com/itm/${itmMatch[1]}`;
             }
         }
-        // Amazon canonical: keep ASIN
-        if (url.hostname.includes('amazon.')) {
-            const asinMatch = url.pathname.match(/\/([A-Z0-9]{10})(?:[/?]|$)/);
-            if (asinMatch) {
-                return `https://${url.hostname}/dp/${asinMatch[1]}`;
-            }
-        }
-        // Flipkart canonical: keep pid
-        if (url.hostname.includes('flipkart.')) {
-            const pidMatch = url.searchParams.get('pid');
-            if (pidMatch) {
-                return `https://${url.hostname}${url.pathname.split('/p/')[0] || ''}/p?pid=${pidMatch}`;
-            }
-        }
         // General cleaning: Strip query params except for common IDs
         url.search = '';
         return url.toString();
@@ -182,16 +110,6 @@ const getHostname = (value) => {
         const url = value.startsWith('http') ? new URL(value) : new URL(`https://${value}`);
         return url.hostname.replace(/^www\./, '').toLowerCase();
     } catch (err) {
-        return null;
-    }
-};
-
-const getAmazonAsin = (value) => {
-    try {
-        const url = value.startsWith('http') ? new URL(value) : new URL(`https://${value}`);
-        const asinMatch = url.pathname.match(/\/([A-Z0-9]{10})(?:[/?]|$)/);
-        return asinMatch ? asinMatch[1] : null;
-    } catch {
         return null;
     }
 };
@@ -229,7 +147,12 @@ const resolveWebsiteId = async (connection, productUrl) => {
  */
 async function scrapeEbayPrice(url) {
     try {
-        const { data } = await fetchHtml(url);
+        const { data } = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            timeout: 8000
+        });
         const $ = cheerio.load(data);
 
         // Try multiple common eBay price selectors
@@ -247,100 +170,6 @@ async function scrapeEbayPrice(url) {
         console.error("Scraping error for", url, ":", e.message);
         return null;
     }
-}
-
-/**
- * Scrape price from Amazon product page.
- * Uses optional ScraperAPI-style proxy when SCRAPER_API_KEY is set.
- */
-async function scrapeAmazonPrice(url) {
-    try {
-        const asin = getAmazonAsin(url);
-        const hostname = getHostname(url) || 'amazon.com';
-
-        // Preferred: SerpApi product endpoint (more reliable than HTML scraping)
-        if (SERPAPI_KEY && asin && canUseSerpApi()) {
-            trackSerpApiCall();
-            const serpUrl = 'https://serpapi.com/search.json';
-            const params = {
-                api_key: SERPAPI_KEY,
-                engine: 'amazon_product',
-                amazon_domain: hostname,
-                asin
-            };
-            const { data } = await axios.get(serpUrl, { params, timeout: 15000 });
-            const priceStr = data?.product_results?.price;
-            if (priceStr) {
-                const cleaned = String(priceStr).replace(/[^\d.]/g, '');
-                if (cleaned) return parseFloat(cleaned);
-            }
-        }
-
-        // Fallback: HTML scrape (may be blocked without proxy)
-        const { data } = await fetchHtml(url);
-        const $ = cheerio.load(data);
-        const priceText =
-            $('#priceblock_ourprice').text() ||
-            $('#priceblock_dealprice').text() ||
-            $('span.a-price-whole').first().text() + '.' + $('span.a-price-fraction').first().text() ||
-            $('[data-a-color="price"] .a-offscreen').first().text();
-        if (!priceText) return null;
-        const cleanPrice = priceText.replace(/[^\d.]/g, '');
-        return cleanPrice ? parseFloat(cleanPrice) : null;
-    } catch (e) {
-        console.error("Amazon scrape error for", url, e.message);
-        return null;
-    }
-}
-
-/**
- * Scrape price from Flipkart product page.
- */
-async function scrapeFlipkartPrice(url) {
-    try {
-        const { data } = await fetchHtml(url);
-        const $ = cheerio.load(data);
-        const priceText =
-            $('._30jeq3._16Jk6d').text() ||
-            $('._25b18c ._30jeq3').text() ||
-            $('[itemprop="price"]').attr('content');
-        if (!priceText) return null;
-        const cleanPrice = priceText.replace(/[^\d.]/g, '');
-        return cleanPrice ? parseFloat(cleanPrice) : null;
-    } catch (e) {
-        console.error("Flipkart scrape error for", url, e.message);
-        return null;
-    }
-}
-
-/**
- * Shared HTML fetcher with optional ScraperAPI proxy to bypass bot checks.
- */
-async function fetchHtml(targetUrl) {
-    const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9'
-    };
-    const timeout = 10000;
-
-    if (SCRAPER_API_KEY) {
-        const proxyUrl = `https://api.scraperapi.com/?api_key=${SCRAPER_API_KEY}&render=false&url=${encodeURIComponent(targetUrl)}`;
-        return axios.get(proxyUrl, { headers, timeout });
-    }
-
-    return axios.get(targetUrl, { headers, timeout });
-}
-
-/**
- * Pick the right scraper based on hostname.
- */
-async function scrapePriceByUrl(url) {
-    const hostname = getHostname(url) || '';
-    if (hostname.includes('ebay')) return scrapeEbayPrice(url);
-    if (hostname.includes('amazon.')) return scrapeAmazonPrice(url);
-    if (hostname.includes('flipkart.')) return scrapeFlipkartPrice(url);
-    // Default: try generic fetch (may be blocked)
-    return scrapeEbayPrice(url);
 }
 
 // Add a product AND its source link — tied to a specific user
@@ -368,7 +197,7 @@ app.post(['/products', '/api/products'], async (req, res) => {
         const websiteId = await resolveWebsiteId(connection, url);
 
         // 2.1 Fetch initial price
-        const initialPrice = await scrapePriceByUrl(url);
+        const initialPrice = await scrapeEbayPrice(url);
 
         const sourceQuery = "INSERT INTO product_sources (product_id, website_id, product_url, last_price) VALUES (?, ?, ?, ?)";
         const [sourceResult] = await connection.query(sourceQuery, [productId, websiteId, cleanedUrl, initialPrice]);
@@ -419,14 +248,13 @@ app.get('/products/:id', async (req, res) => {
             [product.source_id]
         );
 
-        const { store, storeLogo } = detectStore(product.product_url);
         res.json({
             success: true,
             data: {
                 ...product,
                 history: history,
-                store,
-                storeLogo
+                store: 'eBay',
+                storeLogo: EBAY_LOGO
             }
         });
     } catch (error) {
@@ -444,13 +272,8 @@ app.get('/api/products/:id', async (req, res) => {
         );
         if (products.length === 0) return res.status(404).json({ success: false, message: "Product not found" });
         const product = products[0];
-        const { store, storeLogo } = detectStore(product.product_url);
-        // Align with schema: price_history is keyed by product_source_id, not source_id
-        const [history] = await pool.query(
-            'SELECT price, scraped_at as created_at FROM price_history WHERE product_source_id = ? ORDER BY scraped_at ASC',
-            [product.source_id]
-        );
-        res.json({ success: true, data: { ...product, history, store, storeLogo } });
+        const [history] = await pool.query('SELECT price, created_at FROM price_history WHERE source_id = ? ORDER BY created_at ASC', [product.source_id]);
+        res.json({ success: true, data: { ...product, history, store: 'eBay', storeLogo: EBAY_LOGO } });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -605,50 +428,6 @@ async function searchEbay(query) {
     }
 }
 
-/**
- * Amazon search via SerpApi (recommended: SERPAPI_KEY must be set)
- */
-async function searchAmazon(query) {
-    if (!SERPAPI_KEY) {
-        return [];
-    }
-    if (!canUseSerpApi()) {
-        console.log('🚦 SerpAPI monthly limit reached — skipping Amazon search');
-        return [];
-    }
-    trackSerpApiCall();
-
-    try {
-        const params = {
-            api_key: SERPAPI_KEY,
-            engine: 'amazon',
-            amazon_domain: AMAZON_DOMAIN,
-            k: query
-        };
-        console.log('🔍 SerpAPI Amazon search for:', query);
-        const { data } = await axios.get('https://serpapi.com/search.json', { params, timeout: 15000 });
-
-        // Debug: log what keys came back
-        console.log('📦 SerpAPI response keys:', Object.keys(data));
-
-        const items = data?.organic_results || [];
-        console.log(`📦 Amazon results: ${items.length} products found`);
-
-        return items.slice(0, 20).map((item, idx) => ({
-            id: `amz-${item.asin || idx}`,
-            name: item.title || 'Unknown',
-            price: item.price || (item.extracted_price ? `$${item.extracted_price}` : 'N/A'),
-            image: item.thumbnail || null,
-            url: item.link || '#',
-            store: 'Amazon',
-            storeLogo: AMAZON_LOGO
-        }));
-    } catch (error) {
-        console.error('Amazon search error:', error.response?.data || error.message);
-        return [];
-    }
-}
-
 // ── Search Endpoint ───────────────────────────────────────────────
 app.get(['/search', '/api/search'], async (req, res) => {
     const { q } = req.query;
@@ -656,45 +435,31 @@ app.get(['/search', '/api/search'], async (req, res) => {
         return res.status(400).json({ success: false, message: "Query 'q' is required (min 2 chars)." });
     }
 
+    const hasEbayKey = !!process.env.EBAY_APP_ID;
+
+    if (!hasEbayKey) {
+        return res.json({
+            success: true,
+            count: 0,
+            sources: { ebay: 0 },
+            ebayKeyMissing: true,
+            data: []
+        });
+    }
+
     try {
-        const [ebayResults, amazonResults] = await Promise.all([
-            process.env.EBAY_APP_ID ? searchEbay(q) : [],
-            (SERPAPI_KEY && canUseSerpApi()) ? searchAmazon(q) : []
-        ]);
-
-        const combined = [...amazonResults, ...ebayResults];
-        const sources = {
-            amazon: amazonResults.length,
-            ebay: ebayResults.length
-        };
-
+        const ebayResults = await searchEbay(q);
         res.json({
             success: true,
-            count: combined.length,
-            sources,
-            ebayKeyMissing: !process.env.EBAY_APP_ID,
-            amazonKeyMissing: !SERPAPI_KEY,
-            serpapiUsage: `${serpapiMonthlyUsage.count}/${SERPAPI_MONTHLY_LIMIT}`,
-            data: combined
+            count: ebayResults.length,
+            sources: { ebay: ebayResults.length },
+            ebayKeyMissing: false,
+            data: ebayResults
         });
     } catch (error) {
-        console.error("Search Error:", error);
-        res.status(500).json({ success: false, message: error.message || "Error fetching search results." });
+        console.error("eBay Search Error:", error);
+        res.status(500).json({ success: false, message: error.message || "Error fetching data from eBay." });
     }
-});
-
-// ── SerpAPI Usage Check ───────────────────────────────────────────
-app.get('/api/serpapi-usage', (req, res) => {
-    const currentMonth = new Date().getMonth();
-    if (currentMonth !== serpapiMonthlyUsage.month) {
-        serpapiMonthlyUsage = { count: 0, month: currentMonth };
-    }
-    res.json({
-        used: serpapiMonthlyUsage.count,
-        limit: SERPAPI_MONTHLY_LIMIT,
-        remaining: SERPAPI_MONTHLY_LIMIT - serpapiMonthlyUsage.count,
-        dailyCronCap: SERPAPI_DAILY_CAP
-    });
 });
 
 // Add a product source
@@ -819,8 +584,8 @@ app.post(['/login', '/api/login'], async (req, res) => {
 });
 
 // ── Automated Price Pulse (every 6 hours) ───────────────────────────
-cron.schedule(PULSE_CRON, async () => {
-    console.log(`? Pulsing (${PULSE_CRON}): Checking tracked products for market changes & price drops...`);
+cron.schedule('0 */6 * * *', async () => {
+    console.log('⏰ Pulsing: Checking tracked products for market changes & price drops...');
 
     // 1. Setup Email Transporter (Gmail ready)
     const transporter = nodemailer.createTransport({
@@ -834,53 +599,25 @@ cron.schedule(PULSE_CRON, async () => {
     try {
         // Fetch products, their previous prices, and the user's email for alerts
         const [rows] = await pool.query(`
-            SELECT 
-                s.id, s.product_url, s.last_price as old_price, p.name, u.email as user_email,
-                (SELECT MAX(scraped_at) FROM price_history ph WHERE ph.product_source_id = s.id) as last_scraped_at
+            SELECT s.id, s.product_url, s.last_price as old_price, p.name, u.email as user_email
             FROM product_sources s
             JOIN products p ON s.product_id = p.id
             JOIN users u ON p.user_id = u.id
         `);
 
-        let serpapiCalls = 0;
-
         for (const row of rows) {
-            const hostname = getHostname(row.product_url) || '';
+            const freshPrice = await scrapeEbayPrice(row.product_url);
 
-            // Save SerpApi calls: skip Amazon if refreshed in last 24h, daily cap reached, or monthly limit hit
-            if (hostname.includes('amazon.')) {
-                if (!canUseSerpApi()) {
-                    console.log(`🚦 SerpAPI monthly limit (${SERPAPI_MONTHLY_LIMIT}) reached; skipping Amazon source ${row.id}`);
-                    continue;
-                }
-                const last = row.last_scraped_at ? new Date(row.last_scraped_at) : null;
-                const tooRecent = last && (Date.now() - last.getTime() < 24 * 60 * 60 * 1000);
-                if (tooRecent) {
-                    console.log(`⏳ Skipping Amazon source ${row.id} (refreshed <24h ago)`);
-                    continue;
-                }
-                if (serpapiCalls >= SERPAPI_DAILY_CAP) {
-                    console.log(`🚦 SerpApi daily cap (${SERPAPI_DAILY_CAP}) reached; skipping Amazon source ${row.id}`);
-                    continue;
-                }
-                serpapiCalls += 1;
-                trackSerpApiCall();
-            }
-
-            const freshPrice = await scrapePriceByUrl(row.product_url);
-
-            // Accept zero-priced items and ensure we still set a baseline
-            if (freshPrice !== null && freshPrice !== undefined) {
+            if (freshPrice) {
                 const oldPrice = parseFloat(row.old_price);
-                const hasPreviousPrice = Number.isFinite(oldPrice);
                 const currentPrice = parseFloat(freshPrice);
 
                 // Update database
                 await pool.query('UPDATE product_sources SET last_price = ? WHERE id = ?', [currentPrice, row.id]);
                 await pool.query('INSERT INTO price_history (product_source_id, price) VALUES (?, ?)', [row.id, currentPrice]);
 
-                // PRICE DROP DETECTION — only if we already had a baseline
-                if (hasPreviousPrice && currentPrice < oldPrice) {
+                // PRICE DROP DETECTION!
+                if (oldPrice && currentPrice < oldPrice) {
                     const savings = (oldPrice - currentPrice).toFixed(2);
                     console.log(`📉 ALERT: Price Drop for ${row.name}! Sending email to ${row.user_email}`);
 
@@ -927,8 +664,8 @@ app.use((req, res) => {
     });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server is flying on http://localhost:${PORT}`);
-    console.log(`📡 Access via http://127.0.0.1:${PORT}`);
 });
+
 
