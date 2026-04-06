@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
                         <div className="p-3 bg-brand-bg rounded-xl border border-brand-border w-fit mb-4 group-hover:border-brand-cyan/30 transition-colors">
                             <Target className="text-brand-cyan w-6 h-6" />
                         </div>
-                        <h3 className="text-3xl font-black text-white mb-1">${stats.savings}</h3>
+                        <h3 className="text-3xl font-black text-white mb-1">₹{parseFloat(stats.savings).toLocaleString('en-IN')}</h3>
                         <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Total Savings Found</p>
                     </div>
 

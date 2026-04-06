@@ -26,6 +26,24 @@ export default function ProductsPage() {
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
     const [showNotifyModal, setShowNotifyModal] = useState(false);
     const [isNotified, setIsNotified] = useState(false);
+    const [loadingNotif, setLoadingNotif] = useState(true);
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        const user = storedUser ? JSON.parse(storedUser) : null;
+
+        if (user?.id) {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/api/users/${user.id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) setIsNotified(!!data.notifications_active);
+                })
+                .catch(err => console.error('Failed to fetch notif status:', err))
+                .finally(() => setLoadingNotif(false));
+        } else {
+            setLoadingNotif(false);
+        }
+    }, []);
     const [userEmail, setUserEmail] = useState("");
     const router = useRouter();
 
@@ -120,6 +138,30 @@ export default function ProductsPage() {
         router.push(`/product/${id}`);
     };
 
+    const handleUnderstood = async () => {
+        setIsNotified(true);
+        setShowNotifyModal(false);
+
+        const storedUser = localStorage.getItem('user');
+        const user = storedUser ? JSON.parse(storedUser) : null;
+
+        if (user?.id) {
+            try {
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/api/users/${user.id}/notifications`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ active: true })
+                });
+
+                // Update local storage so it persists across other pages too
+                user.notifications_active = 1;
+                localStorage.setItem('user', JSON.stringify(user));
+            } catch (err) {
+                console.error('Failed to persist notification status:', err);
+            }
+        }
+    };
+
     const filteredProducts = products.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.category?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -131,7 +173,7 @@ export default function ProductsPage() {
 
     return (
         <div className="flex flex-col flex-1 bg-brand-bg min-h-screen">
-            <Navbar />
+            <Navbar onSearch={(val) => setSearchTerm(val)} />
 
             <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
                 {/* Statistics Header */}
@@ -183,7 +225,7 @@ export default function ProductsPage() {
 
                 {/* Controls */}
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="relative w-full md:w-96 group">
+                    <div className="relative group w-full md:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-brand-cyan transition-colors" />
                         <input
                             type="text"
@@ -368,10 +410,7 @@ export default function ProductsPage() {
                             You'll receive an email at <span className="text-brand-cyan font-black">{userEmail}</span> as soon as any product price fluctuates.
                         </p>
                         <button
-                            onClick={() => {
-                                setShowNotifyModal(false);
-                                setIsNotified(true);
-                            }}
+                            onClick={handleUnderstood}
                             className="w-full py-3 bg-brand-cyan text-brand-bg font-black rounded-xl text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-brand-cyan/20"
                         >
                             Understood

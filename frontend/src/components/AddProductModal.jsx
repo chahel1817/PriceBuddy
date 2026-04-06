@@ -29,6 +29,7 @@ function SkeletonCard() {
 
 // ── Product Card (Grid) ────────────────────────────────────────────────────────
 function ProductCard({ product, onTrack, isTracked, isTracking }) {
+    const [targetPrice, setTargetPrice] = useState('');
     const [imgErr, setImgErr] = useState(false);
     const store = product.store || 'Store';
     const badgeTone = store.toLowerCase().includes('amazon')
@@ -73,7 +74,7 @@ function ProductCard({ product, onTrack, isTracked, isTracking }) {
             {/* Info */}
             <div className="flex flex-col flex-1 p-3.5 gap-3">
                 <div className="flex-1">
-                    <p className="text-xs font-semibold text-white/90 leading-snug line-clamp-2 mb-1.5">
+                    <p className="text-xs font-semibold text-white/90 leading-snug line-clamp-2 mb-1.5 min-h-[2.5rem]">
                         {product.name}
                     </p>
                     <div className="flex items-center gap-2">
@@ -81,8 +82,25 @@ function ProductCard({ product, onTrack, isTracked, isTracking }) {
                     </div>
                 </div>
 
+                {!isTracked && (
+                    <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                                <Tag className="w-2.5 h-2.5" /> Set Target (₹)
+                            </span>
+                        </div>
+                        <input
+                            type="number"
+                            placeholder="Target Price..."
+                            value={targetPrice}
+                            onChange={(e) => setTargetPrice(e.target.value)}
+                            className="bg-black/40 border border-white/10 rounded-lg py-1.5 px-2.5 text-[10px] text-brand-cyan placeholder:text-gray-700 focus:outline-none focus:border-brand-cyan/40 font-black tracking-wider transition-all"
+                        />
+                    </div>
+                )}
+
                 {/* Actions */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-auto">
                     {isTracked ? (
                         <div className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -90,7 +108,7 @@ function ProductCard({ product, onTrack, isTracked, isTracking }) {
                         </div>
                     ) : (
                         <button
-                            onClick={() => onTrack(product)}
+                            onClick={() => onTrack(product, targetPrice)}
                             disabled={isTracking}
                             className={cn(
                                 "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200",
@@ -99,8 +117,8 @@ function ProductCard({ product, onTrack, isTracked, isTracking }) {
                                 "active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                             )}
                         >
-                            {isTracking ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                            {isTracking ? 'Adding...' : 'Track'}
+                            {isTracking ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                            {isTracking ? 'Adding...' : 'Alert Me'}
                         </button>
                     )}
                     <a
@@ -171,10 +189,9 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
         handleSearch(null, hint);
     };
 
-    const handleTrack = async (product) => {
+    const handleTrack = async (product, target_price) => {
         setTrackingId(product.id);
         try {
-            // Get logged-in user's ID so the product is saved under their account
             const storedUser = localStorage.getItem('user');
             const user_id = storedUser ? JSON.parse(storedUser)?.id : null;
 
@@ -183,10 +200,11 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: product.name,
-                    category: category === 'All' ? 'Electronics' : category,
+                    category: category === 'All' ? (product.category || 'Electronics') : category,
                     image_url: product.image || null,
                     url: product.url,
                     user_id,
+                    target_price: target_price ? parseFloat(target_price) : null
                 }),
             });
             const result = await res.json();
