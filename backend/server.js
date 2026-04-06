@@ -27,6 +27,7 @@ const SERPAPI_DAILY_CAP = parseInt(process.env.SERPAPI_DAILY_CAP || '2', 10); //
 const SERPAPI_MONTHLY_LIMIT = parseInt(process.env.SERPAPI_MONTHLY_LIMIT || '250', 10);
 const app = express();
 const PORT = process.env.PORT || 5001;
+const USD_TO_INR = 83.0; // Conversion rate
 
 // ── SerpAPI Monthly Usage Tracker ────────────────────────────────
 // Resets automatically on the 1st of each month
@@ -100,7 +101,10 @@ app.get('/products', async (req, res) => {
             SELECT p.*, s.id as source_id, s.product_url, s.last_price,
             (SELECT ph.price FROM price_history ph 
              WHERE ph.product_source_id = s.id 
-             ORDER BY ph.scraped_at DESC LIMIT 1 OFFSET 1) as prev_price
+             ORDER BY ph.scraped_at DESC LIMIT 1 OFFSET 1) as prev_price,
+            (SELECT ph.scraped_at FROM price_history ph
+             WHERE ph.product_source_id = s.id
+             ORDER BY ph.scraped_at DESC LIMIT 1) as scraped_at
             FROM products p 
             LEFT JOIN product_sources s ON p.id = s.product_id 
         `;
@@ -114,12 +118,40 @@ app.get('/products', async (req, res) => {
 
 
         const [rows] = await pool.query(query, params);
-        // Enrich each row with detected store info
+
+        // ── Calculate Stats for Dashboard ─────────────────────────
+        let totalDrop = 0;
+        let dropCount = 0;
+        let totalCurrentValue = 0;
+
+        // Enrich each row with detected store info and calc stats
         const enriched = rows.map(r => {
             const { store, storeLogo } = detectStore(r.product_url);
+
+            // Calc stats
+            const current = parseFloat(r.last_price || 0);
+            const prev = parseFloat(r.prev_price || 0);
+            if (prev > 0 && current < prev) {
+                totalDrop += (prev - current);
+                dropCount++;
+            }
+            totalCurrentValue += current;
+
             return { ...r, store, storeLogo };
         });
-        res.json({ success: true, count: enriched.length, data: enriched });
+
+        const statsStore = {
+            avgPriceDrop: dropCount > 0 ? (totalDrop / dropCount).toFixed(2) : 0,
+            totalSavings: totalDrop.toFixed(2),
+            productCount: enriched.length
+        };
+
+        res.json({
+            success: true,
+            count: enriched.length,
+            stats: statsStore,
+            data: enriched
+        });
     } catch (error) {
         console.error("Error in GET /products:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -332,15 +364,26 @@ async function fetchHtml(targetUrl) {
 }
 
 /**
- * Pick the right scraper based on hostname.
+ * Pick the right scraper based on hostname and convert to INR if needed.
  */
 async function scrapePriceByUrl(url) {
     const hostname = getHostname(url) || '';
-    if (hostname.includes('ebay')) return scrapeEbayPrice(url);
-    if (hostname.includes('amazon.')) return scrapeAmazonPrice(url);
-    if (hostname.includes('flipkart.')) return scrapeFlipkartPrice(url);
-    // Default: try generic fetch (may be blocked)
-    return scrapeEbayPrice(url);
+    let price = null;
+
+    if (hostname.includes('ebay')) {
+        price = await scrapeEbayPrice(url);
+        if (price) price = price * USD_TO_INR; // Convert eBay USD to INR
+    } else if (hostname.includes('amazon.')) {
+        price = await scrapeAmazonPrice(url);
+        if (price) price = price * USD_TO_INR; // Convert Amazon USD to INR
+    } else if (hostname.includes('flipkart.')) {
+        price = await scrapeFlipkartPrice(url);
+    } else {
+        price = await scrapeEbayPrice(url);
+        if (price) price = price * USD_TO_INR;
+    }
+
+    return price ? parseFloat(price.toFixed(2)) : null;
 }
 
 // Add a product AND its source link — tied to a specific user
@@ -546,15 +589,18 @@ async function searchEbay(query) {
 
             const items = data.itemSummaries || [];
             if (items.length > 0) {
-                return items.slice(0, 20).map((item, i) => ({
-                    id: `ebay-br-${item.itemId}`,
-                    name: item.title?.substring(0, 100) || 'Unknown',
-                    price: item.price?.value ? `$${parseFloat(item.price.value).toFixed(2)}` : 'N/A',
-                    image: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null,
-                    url: item.itemWebUrl || '#',
-                    store: 'eBay',
-                    storeLogo: EBAY_LOGO
-                }));
+                return items.slice(0, 20).map((item, i) => {
+                    const priceVal = item.price?.value ? parseFloat(item.price.value) : 0;
+                    return {
+                        id: `ebay-br-${item.itemId}`,
+                        name: item.title?.substring(0, 100) || 'Unknown',
+                        price: priceVal > 0 ? `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
+                        image: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null,
+                        url: item.itemWebUrl || '#',
+                        store: 'eBay',
+                        storeLogo: EBAY_LOGO
+                    };
+                });
             }
         }
     } catch (error) {
@@ -588,17 +634,18 @@ async function searchEbay(query) {
 
         const items = data?.findItemsByKeywordsResponse?.[0]?.searchResult?.[0]?.item || [];
 
-        return items.slice(0, 20).map((item, i) => ({
-            id: `ebay-fn-${i}`,
-            name: item.title?.[0]?.substring(0, 100) || 'Unknown',
-            price: item.sellingStatus?.[0]?.currentPrice?.[0]?.['__value__']
-                ? `$${parseFloat(item.sellingStatus[0].currentPrice[0]['__value__']).toFixed(2)}`
-                : 'N/A',
-            image: item.galleryURL?.[0] || null,
-            url: item.viewItemURL?.[0] || '#',
-            store: 'eBay',
-            storeLogo: EBAY_LOGO
-        }));
+        return items.slice(0, 20).map((item, i) => {
+            const priceVal = item.sellingStatus?.[0]?.currentPrice?.[0]?.['__value__'] ? parseFloat(item.sellingStatus[0].currentPrice[0]['__value__']) : 0;
+            return {
+                id: `ebay-fn-${i}`,
+                name: item.title?.[0]?.substring(0, 100) || 'Unknown',
+                price: priceVal > 0 ? `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
+                image: item.galleryURL?.[0] || null,
+                url: item.viewItemURL?.[0] || '#',
+                store: 'eBay',
+                storeLogo: EBAY_LOGO
+            };
+        });
     } catch (e) {
         console.error('eBay Finding API critical failure:', e.response?.data || e.message);
         throw new Error('All eBay API attempts failed. Please verify your App ID and Cert ID are valid for Production (not Sandbox) and are active.');
@@ -634,15 +681,18 @@ async function searchAmazon(query) {
         const items = data?.organic_results || [];
         console.log(`📦 Amazon results: ${items.length} products found`);
 
-        return items.slice(0, 20).map((item, idx) => ({
-            id: `amz-${item.asin || idx}`,
-            name: item.title || 'Unknown',
-            price: item.price || (item.extracted_price ? `$${item.extracted_price}` : 'N/A'),
-            image: item.thumbnail || null,
-            url: item.link || '#',
-            store: 'Amazon',
-            storeLogo: AMAZON_LOGO
-        }));
+        return items.slice(0, 20).map((item, idx) => {
+            const priceVal = item.extracted_price || (item.price ? parseFloat(item.price.replace(/[^\d.]/g, '')) : 0);
+            return {
+                id: `amz-${item.asin || idx}`,
+                name: item.title || 'Unknown',
+                price: priceVal > 0 ? `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
+                image: item.thumbnail || null,
+                url: item.link || '#',
+                store: 'Amazon',
+                storeLogo: AMAZON_LOGO
+            };
+        });
     } catch (error) {
         console.error('Amazon search error:', error.response?.data || error.message);
         return [];
@@ -882,25 +932,43 @@ cron.schedule(PULSE_CRON, async () => {
                 // PRICE DROP DETECTION — only if we already had a baseline
                 if (hasPreviousPrice && currentPrice < oldPrice) {
                     const savings = (oldPrice - currentPrice).toFixed(2);
-                    console.log(`📉 ALERT: Price Drop for ${row.name}! Sending email to ${row.user_email}`);
+                    const { store, storeLogo } = detectStore(row.product_url);
+                    const themeColor = store === 'Amazon' ? '#FF9900' : (store === 'eBay' ? '#00E5FF' : '#2874f0');
+
+                    console.log(`📉 ALERT: Price Drop for ${row.name} on ${store}! Sending email to ${row.user_email}`);
 
                     const mailOptions = {
-                        from: `"PriceBuddy Alerts" <${process.env.EMAIL_USER}>`,
+                        from: `"PriceBuddy ${store} Alerts" <${process.env.EMAIL_USER}>`,
                         to: row.user_email,
-                        subject: `📉 PRICE DROP ALERT: ${row.name} just got cheaper!`,
+                        subject: `📉 ${store} PRICE DROP: ${row.name} just got cheaper!`,
                         html: `
-                            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                                <h2 style="color: #00E5FF;">Good News from PriceBuddy!</h2>
-                                <p>We just found a price drop for a product you're tracking:</p>
-                                <hr />
-                                <h3 style="margin: 0;">${row.name}</h3>
-                                <p style="font-size: 18px;">
-                                    Old Price: <span style="text-decoration: line-through; color: #888;">$${oldPrice.toLocaleString()}</span><br />
-                                    <b>New Price: <span style="color: #10b981;">$${currentPrice.toLocaleString()}</span></b>
-                                </p>
-                                <p style="color: #10b981; font-weight: bold;">You save $${savings}!</p>
-                                <a href="${row.product_url}" style="display: inline-block; padding: 12px 25px; background: #00E5FF; color: #000; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px;">Buy Now on eBay</a>
-                                <p style="margin-top: 30px; font-size: 11px; color: #999;">You're receiving this because you're tracking this item on PriceBuddy.</p>
+                            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0; margin: 0; background-color: #f9f9f9;">
+                                <div style="max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eee;">
+                                    <div style="background: ${themeColor}; padding: 30px; text-align: center;">
+                                        ${storeLogo ? `<img src="${storeLogo}" alt="${store}" style="height: 40px; filter: brightness(0) invert(1);" />` : `<h1 style="color: white; margin: 0;">${store}</h1>`}
+                                        <h2 style="color: white; margin-top: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Price Drop Detected!</h2>
+                                    </div>
+                                    <div style="padding: 40px 30px;">
+                                        <p style="color: #666; font-size: 16px; line-height: 1.6;">Hello, we found an amazing deal for a product you're tracking on <strong>${store}</strong>:</p>
+                                        <div style="margin: 30px 0; padding: 20px; background: #f0fdf4; border-radius: 10px; border: 1px solid #dcfce7;">
+                                            <h3 style="margin: 0 0 15px 0; color: #111; font-size: 18px;">${row.name}</h3>
+                                            <div style="display: flex; align-items: baseline; gap: 15px;">
+                                                <span style="font-size: 28px; font-weight: 900; color: #16a34a;">₹${currentPrice.toLocaleString()}</span>
+                                                <span style="font-size: 18px; color: #94a3b8; text-decoration: line-through; margin-left: 10px;">₹${oldPrice.toLocaleString()}</span>
+                                            </div>
+                                            <p style="color: #16a34a; font-weight: bold; margin: 10px 0 0 0; font-size: 14px;">⚡ You are saving ₹${savings}!</p>
+                                        </div>
+                                        <div style="text-align: center; margin-top: 35px;">
+                                            <a href="${row.product_url}" style="display: inline-block; padding: 16px 35px; background: ${themeColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 10px ${themeColor}44;">View Item On ${store}</a>
+                                        </div>
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #f1f5f9;">
+                                        <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+                                            This is an automated alert from your PriceBuddy Dashboard.<br/>
+                                            You're receiving this because you're tracking this item.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         `
                     };

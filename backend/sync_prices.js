@@ -46,16 +46,22 @@ async function scrapeAmazonPrice(url) {
             const serpUrl = 'https://serpapi.com/search.json';
             const params = {
                 api_key: SERPAPI_KEY,
+                engine: 'amazon_product',
                 amazon_domain: hostname,
-                type: 'product',
                 asin
             };
             const { data } = await axios.get(serpUrl, { params, timeout: 10000 });
-            const value = data?.product_results?.price?.value;
-            if (value) return parseFloat(value);
+
+            // SerpApi Amazon Product structure sometimes differs
+            const results = data.product_results;
+            const priceVal = results?.price?.value ||
+                (typeof results?.price === 'number' ? results.price : null) ||
+                (results?.price?.replace ? parseFloat(results.price.replace(/[^\d.]/g, '')) : null);
+
+            if (priceVal) return parseFloat(priceVal);
         }
     } catch (e) {
-        console.error("Amazon SerpApi error:", e.message);
+        console.error("Amazon SerpApi error:", e.response?.data || e.message);
     }
 
     // Fallback to HTML
@@ -98,12 +104,20 @@ async function scrapeByUrl(url) {
         const [rows] = await pool.query('SELECT id, product_url FROM product_sources');
         console.log(`Found ${rows.length} products to sync.`);
 
+        const USD_TO_INR = 83.0; // Define conversion rate
+
         for (const row of rows) {
             console.log(`Checking: ${row.product_url}`);
-            const price = await scrapeByUrl(row.product_url);
+            let price = await scrapeByUrl(row.product_url);
+
+            // Assume eBay/Amazon prices are USD and convert them to INR
+            const hostname = getHostname(row.product_url) || '';
+            if (price && (hostname.includes('amazon.') || hostname.includes('ebay'))) {
+                price = parseFloat((price * USD_TO_INR).toFixed(2));
+            }
+
             if (price) {
                 await pool.query('UPDATE product_sources SET last_price = ? WHERE id = ?', [price, row.id]);
-                // Clear and re-add initial history if needed, or just add one entry
                 await pool.query('INSERT IGNORE INTO price_history (product_source_id, price) VALUES (?, ?)', [row.id, price]);
                 console.log(`✅ Updated ${row.id} to ₹${price}`);
             } else {
