@@ -98,7 +98,7 @@ app.get('/products', async (req, res) => {
         const { user_id } = req.query;
         // In this join, we also fetch the second-to-last price point from history to calculate trend
         let query = `
-            SELECT p.*, s.id as source_id, s.product_url, s.last_price,
+            SELECT p.*, s.id as source_id, s.product_url, s.last_price, s.target_price,
             (SELECT ph.price FROM price_history ph 
              WHERE ph.product_source_id = s.id 
              ORDER BY ph.scraped_at DESC LIMIT 1 OFFSET 1) as prev_price,
@@ -388,7 +388,7 @@ async function scrapePriceByUrl(url) {
 
 // Add a product AND its source link — tied to a specific user
 app.post(['/products', '/api/products'], async (req, res) => {
-    const { name, category, image_url, url, user_id } = req.body;
+    const { name, category, image_url, url, user_id, target_price } = req.body;
 
     if (!name || !url) {
         return res.status(400).json({
@@ -413,8 +413,8 @@ app.post(['/products', '/api/products'], async (req, res) => {
         // 2.1 Fetch initial price
         const initialPrice = await scrapePriceByUrl(url);
 
-        const sourceQuery = "INSERT INTO product_sources (product_id, website_id, product_url, last_price) VALUES (?, ?, ?, ?)";
-        const [sourceResult] = await connection.query(sourceQuery, [productId, websiteId, cleanedUrl, initialPrice]);
+        const sourceQuery = "INSERT INTO product_sources (product_id, website_id, product_url, last_price, target_price) VALUES (?, ?, ?, ?, ?)";
+        const [sourceResult] = await connection.query(sourceQuery, [productId, websiteId, cleanedUrl, initialPrice, target_price || null]);
         const sourceId = sourceResult.insertId;
 
         // 3. Record history if price found (use product_source_id)
@@ -446,7 +446,7 @@ app.get('/products/:id', async (req, res) => {
     console.log(`Fetching detail for product: ${id}`);
     try {
         const [products] = await pool.query(
-            'SELECT p.*, s.product_url, s.last_price, s.id as source_id FROM products p LEFT JOIN product_sources s ON p.id = s.product_id WHERE p.id = ?',
+            'SELECT p.*, s.product_url, s.last_price, s.target_price, s.id as source_id FROM products p LEFT JOIN product_sources s ON p.id = s.product_id WHERE p.id = ?',
             [id]
         );
 
@@ -482,7 +482,7 @@ app.get('/api/products/:id', async (req, res) => {
     const { id } = req.params;
     try {
         const [products] = await pool.query(
-            'SELECT p.*, s.product_url, s.last_price, s.id as source_id FROM products p LEFT JOIN product_sources s ON p.id = s.product_id WHERE p.id = ?',
+            'SELECT p.*, s.product_url, s.last_price, s.target_price, s.id as source_id FROM products p LEFT JOIN product_sources s ON p.id = s.product_id WHERE p.id = ?',
             [id]
         );
         if (products.length === 0) return res.status(404).json({ success: false, message: "Product not found" });
@@ -526,6 +526,18 @@ app.delete(['/products/:id', '/api/products/:id'], async (req, res) => {
         res.json({ success: true, message: "Product removed from tracking." });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Update Target Price for a product source
+app.patch('/api/products/:id/target-price', async (req, res) => {
+    const { id } = req.params;
+    const { target_price } = req.body;
+    try {
+        await pool.query('UPDATE product_sources SET target_price = ? WHERE product_id = ?', [target_price, id]);
+        res.json({ success: true, message: `Target price updated to ₹${target_price}` });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
@@ -859,7 +871,8 @@ app.post(['/login', '/api/login'], async (req, res) => {
             user: {
                 id: user.id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                notifications_active: user.notifications_active
             }
         });
     } catch (error) {
@@ -882,10 +895,10 @@ cron.schedule(PULSE_CRON, async () => {
     });
 
     try {
-        // Fetch products, their previous prices, and the user's email for alerts
+        // Fetch products, their target prices, and the user's email for alerts
         const [rows] = await pool.query(`
             SELECT 
-                s.id, s.product_url, s.last_price as old_price, p.name, u.email as user_email,
+                s.id, s.product_url, s.last_price as old_price, s.target_price, p.name, u.email as user_email,
                 (SELECT MAX(scraped_at) FROM price_history ph WHERE ph.product_source_id = s.id) as last_scraped_at
             FROM product_sources s
             JOIN products p ON s.product_id = p.id
@@ -922,6 +935,7 @@ cron.schedule(PULSE_CRON, async () => {
             // Accept zero-priced items and ensure we still set a baseline
             if (freshPrice !== null && freshPrice !== undefined) {
                 const oldPrice = parseFloat(row.old_price);
+                const targetPrice = row.target_price ? parseFloat(row.target_price) : null;
                 const hasPreviousPrice = Number.isFinite(oldPrice);
                 const currentPrice = parseFloat(freshPrice);
 
@@ -929,13 +943,16 @@ cron.schedule(PULSE_CRON, async () => {
                 await pool.query('UPDATE product_sources SET last_price = ? WHERE id = ?', [currentPrice, row.id]);
                 await pool.query('INSERT INTO price_history (product_source_id, price) VALUES (?, ?)', [row.id, currentPrice]);
 
-                // PRICE DROP DETECTION — only if we already had a baseline
-                if (hasPreviousPrice && currentPrice < oldPrice) {
+                // PRICE DROP DETECTION AND TARGET ALERT
+                const isDrop = currentPrice < oldPrice;
+                const metTarget = targetPrice ? currentPrice <= targetPrice : true;
+
+                if (hasPreviousPrice && isDrop && metTarget) {
                     const savings = (oldPrice - currentPrice).toFixed(2);
                     const { store, storeLogo } = detectStore(row.product_url);
                     const themeColor = store === 'Amazon' ? '#FF9900' : (store === 'eBay' ? '#00E5FF' : '#2874f0');
 
-                    console.log(`📉 ALERT: Price Drop for ${row.name} on ${store}! Sending email to ${row.user_email}`);
+                    console.log(`📉 ALERT: Price Drop for ${row.name} on ${store}! Met Target: ${targetPrice ? `₹${targetPrice}` : 'N/A'}. Sending email to ${row.user_email}`);
 
                     const mailOptions = {
                         from: `"PriceBuddy ${store} Alerts" <${process.env.EMAIL_USER}>`,
@@ -981,6 +998,33 @@ cron.schedule(PULSE_CRON, async () => {
         }
     } catch (e) {
         console.error('Pulse Sync/Email Error:', e);
+    }
+});
+
+// Toggle Notification Status for a user
+app.patch('/api/users/:id/notifications', async (req, res) => {
+    const { id } = req.params;
+    const { active } = req.body;
+    try {
+        await pool.query('UPDATE users SET notifications_active = ? WHERE id = ?', [active, id]);
+        res.json({ success: true, message: `Notifications ${active ? 'activated' : 'deactivated'}` });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// Sync user profile state
+app.get('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [users] = await pool.query('SELECT notifications_active FROM users WHERE id = ?', [id]);
+        if (users.length > 0) {
+            res.json({ success: true, notifications_active: users[0].notifications_active });
+        } else {
+            res.status(404).json({ success: false, message: 'User not found' });
+        }
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
