@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Package, ExternalLink, Trash2, Eye, Plus, Search, Filter, RefreshCcw, TrendingUp, TrendingDown
+    Package, ExternalLink, Trash2, Eye, Plus, Search, Filter, RefreshCcw, TrendingUp, TrendingDown, Bell, BellRing
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { cn } from "@/lib/utils";
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import AddProductModal from "@/components/AddProductModal";
 import DeleteProductModal from "@/components/DeleteProductModal";
+import OnboardingModal from "@/components/OnboardingModal";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
@@ -22,48 +23,58 @@ export default function ProductsPage() {
     const [productToDelete, setProductToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+    const [showNotifyModal, setShowNotifyModal] = useState(false);
+    const [isNotified, setIsNotified] = useState(false);
+    const [userEmail, setUserEmail] = useState("");
     const router = useRouter();
 
     const fetchProducts = async () => {
         try {
             setLoading(true);
-            const user = JSON.parse(localStorage.getItem('user'));
-            const userId = user?.id;
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                const parsed = JSON.parse(storedUser);
+                setUserEmail(parsed.email || "your email");
+                const userId = parsed.id;
 
-            if (!userId) {
+                if (!userId) {
+                    setProducts([]);
+                    return;
+                }
+
+                const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`, { cache: "no-store" });
+                if (!res.ok) throw new Error(`API error: ${res.status}`);
+                const result = await res.json();
+
+                if (result.success) {
+                    const mapped = result.data.map(p => {
+                        const latest = p.last_price ? parseFloat(p.last_price) : null;
+                        const prev = p.prev_price ? parseFloat(p.prev_price) : null;
+
+                        let trendType = 'steady';
+                        if (latest && prev) {
+                            if (latest < prev) trendType = 'falling';
+                            else if (latest > prev) trendType = 'rising';
+                        }
+
+                        return {
+                            id: p.id,
+                            name: p.name,
+                            productImage: p.image_url || null,
+                            category: p.category,
+                            price: latest ? `₹${latest.toLocaleString('en-IN')}` : '—',
+                            prevPrice: prev,
+                            trend: trendType,
+                            updated: p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Syncing...',
+                            stores: [{ name: p.store || 'Store', logo: p.storeLogo || null }],
+                            url: p.product_url || "#"
+                        };
+                    });
+                    setProducts(mapped);
+                }
+            } else {
                 setProducts([]);
-                return;
-            }
-
-            const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`, { cache: "no-store" });
-            if (!res.ok) throw new Error(`API error: ${res.status}`);
-            const result = await res.json();
-
-            if (result.success) {
-                const mapped = result.data.map(p => {
-                    const latest = p.last_price ? parseFloat(p.last_price) : null;
-                    const prev = p.prev_price ? parseFloat(p.prev_price) : null;
-
-                    let trendType = 'steady';
-                    if (latest && prev) {
-                        if (latest < prev) trendType = 'falling';
-                        else if (latest > prev) trendType = 'rising';
-                    }
-
-                    return {
-                        id: p.id,
-                        name: p.name,
-                        productImage: p.image_url || null,
-                        category: p.category,
-                        price: latest ? `$${latest.toLocaleString()}` : '—',
-                        prevPrice: prev,
-                        trend: trendType,
-                        updated: p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Syncing...',
-                        stores: [{ name: p.store || 'Store', logo: p.storeLogo || null }],
-                        url: p.product_url || "#"
-                    };
-                });
-                setProducts(mapped);
             }
         } catch (error) {
             console.error("Fetch error:", error);
@@ -133,6 +144,40 @@ export default function ProductsPage() {
                         <div className="w-10 h-10 bg-brand-cyan/10 rounded-xl flex items-center justify-center">
                             <Package className="w-5 h-5 text-brand-cyan" />
                         </div>
+                    </div>
+
+                    <div className="md:col-span-2 bg-[#0c1829] border border-brand-cyan/20 p-5 rounded-2xl flex items-center justify-between group hover:border-brand-cyan/40 transition-all cursor-pointer shadow-[0_0_20px_rgba(0,229,255,0.02)]">
+                        <div className="flex items-center gap-4">
+                            <div className={cn(
+                                "w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-500",
+                                isNotified ? "bg-emerald-500/10 border-emerald-500/20" : "bg-brand-cyan/10 border-brand-cyan/20"
+                            )}>
+                                <BellRing className={cn("w-6 h-6", isNotified ? "text-emerald-400" : "text-brand-cyan animate-pulse")} />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-white uppercase tracking-tight">
+                                    {isNotified ? 'Notifications Verified' : 'Active Pulse Monitoring'}
+                                </p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                                    {isNotified ? `Alerts directed to ${userEmail}` : 'Get notified when any product price drops'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isNotified) setShowNotifyModal(true);
+                                else setIsNotified(false);
+                            }}
+                            className={cn(
+                                "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
+                                isNotified
+                                    ? "bg-emerald-500 text-brand-bg shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                    : "bg-brand-cyan text-brand-bg hover:shadow-[0_0_15px_rgba(0,229,255,0.4)]"
+                            )}
+                        >
+                            {isNotified ? 'Verified' : 'Notify Me'}
+                        </button>
                     </div>
                 </div>
 
@@ -304,6 +349,36 @@ export default function ProductsPage() {
                 productName={productToDelete?.name}
                 isDeleting={isDeleting}
             />
+
+            <OnboardingModal
+                isOpen={isOnboardingOpen}
+                onClose={() => setIsOnboardingOpen(false)}
+            />
+
+            {/* Email Notification Modal */}
+            {showNotifyModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowNotifyModal(false)} />
+                    <div className="relative bg-[#0c1829] border border-brand-cyan/20 p-8 rounded-[2rem] shadow-[0_0_50px_rgba(0,229,255,0.1)] max-w-sm w-full text-center animate-in zoom-in-95 fade-in duration-200">
+                        <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-brand-cyan/20">
+                            <BellRing className="w-8 h-8 text-brand-cyan" />
+                        </div>
+                        <h3 className="text-white font-black uppercase tracking-tight text-lg mb-3 italic">Alerts Activated!</h3>
+                        <p className="text-gray-400 text-[11px] leading-relaxed font-medium uppercase tracking-[0.05em] mb-8">
+                            You'll receive an email at <span className="text-brand-cyan font-black">{userEmail}</span> as soon as any product price fluctuates.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setShowNotifyModal(false);
+                                setIsNotified(true);
+                            }}
+                            className="w-full py-3 bg-brand-cyan text-brand-bg font-black rounded-xl text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-brand-cyan/20"
+                        >
+                            Understood
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <ReactTooltip id="p-tip" style={{ backgroundColor: '#0c1523', padding: '6px 10px', fontSize: '11px', fontWeight: 'bold' }} border="1px solid #1e293b" />
         </div>

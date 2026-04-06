@@ -28,7 +28,7 @@ export default function ComparisonPage() {
             if (result.success) {
                 const mapped = result.data.map(p => ({
                     ...p,
-                    price: p.last_price ? `$${parseFloat(p.last_price).toLocaleString()}` : 'Syncing...',
+                    price: p.last_price ? `₹${parseFloat(p.last_price).toLocaleString('en-IN')}` : 'Syncing...',
                     store: p.store || 'Store',
                     storeLogo: p.storeLogo || EBAY_LOGO,
                 }));

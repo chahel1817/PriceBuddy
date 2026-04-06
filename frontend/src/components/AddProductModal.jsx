@@ -412,9 +412,9 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
 
                             {/* 4-column product grid */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                {filteredResults.map(product => (
+                                {filteredResults.map((product, idx) => (
                                     <ProductCard
-                                        key={product.id}
+                                        key={`${product.id}-${idx}`}
                                         product={product}
                                         onTrack={handleTrack}
                                         isTracked={trackedIds.has(product.id)}

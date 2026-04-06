@@ -51,6 +51,7 @@ export default function Dashboard() {
   const [loading, setLoading] = React.useState(true);
   const [lastUpdated, setLastUpdated] = React.useState(null);
   const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
+  const [stats, setStats] = React.useState({ avgPriceDrop: 0, totalSavings: 0, productCount: 0 });
   const router = useRouter();
 
   const ranges = ['7D', '1M', '3M', '6M', '1Y'];
@@ -69,21 +70,22 @@ export default function Dashboard() {
       const res = await fetch(`${API_BASE_URL}/products?user_id=${userId}`, { cache: 'no-store' });
       const result = await res.json();
       if (result.success) {
+        if (result.stats) setStats(result.stats);
         const mapped = result.data.map(p => {
-          let prev = null;
           let trendType = 'neutral';
           let percentage = "0%";
 
-          if (p.history && p.history.length > 0) {
-            const last = parseFloat(p.history[0].price);
-            const beforeLast = p.history.length > 1 ? parseFloat(p.history[1].price) : last;
+          // Use backend provided prev_price for cleaner trend calculation
+          const current = parseFloat(p.last_price || 0);
+          const prev = parseFloat(p.prev_price || 0);
 
-            if (last < beforeLast) {
+          if (prev > 0) {
+            if (current < prev) {
               trendType = 'down';
-              percentage = ((beforeLast - last) / beforeLast * 100).toFixed(0) + '%';
-            } else if (last > beforeLast) {
+              percentage = ((prev - current) / prev * 100).toFixed(0) + '%';
+            } else if (current > prev) {
               trendType = 'up';
-              percentage = ((last - beforeLast) / beforeLast * 100).toFixed(0) + '%';
+              percentage = ((current - prev) / prev * 100).toFixed(0) + '%';
             }
           }
 
@@ -92,11 +94,10 @@ export default function Dashboard() {
             name: p.name,
             productImage: p.image_url || null,
             category: p.category,
-            price: p.last_price ? `$${parseFloat(p.last_price).toLocaleString()}` : 'Syncing...',
-            prevPrice: prev,
+            price: p.last_price ? `₹${parseFloat(p.last_price).toLocaleString('en-IN')}` : 'Syncing...',
             trend: trendType,
             change: percentage,
-            updated: p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Syncing...',
+            updated: p.scraped_at ? new Date(p.scraped_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
             store: p.store || 'Marketplace',
             storeLogo: p.storeLogo
           };
@@ -169,9 +170,9 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <StatCard title="Tracked Products" value={productsList.length.toLocaleString()} change={null} isPositive={true} icon={Package} />
-          <StatCard title="Avg. Price Drop" value="—" change={null} isPositive={true} icon={TrendingDown} />
-          <StatCard title="Total Savings" value="—" change={null} isPositive={true} icon={DollarSign} />
+          <StatCard title="Tracked Products" value={stats.productCount.toLocaleString()} change={null} isPositive={true} icon={Package} />
+          <StatCard title="Avg. Price Drop" value={`₹${parseFloat(stats.avgPriceDrop || 0).toLocaleString('en-IN')}`} change={null} isPositive={true} icon={TrendingDown} />
+          <StatCard title="Total Savings" value={`₹${parseFloat(stats.totalSavings || 0).toLocaleString('en-IN')}`} change={null} isPositive={true} icon={DollarSign} />
         </div>
 
         {/* Charts Grid */}

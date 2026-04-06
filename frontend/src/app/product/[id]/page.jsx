@@ -110,7 +110,7 @@ export default function ProductDetailPage({ params }) {
                     changeElement = (
                         <div className={cn("flex items-center gap-1 mt-1.5 text-[10px] font-black uppercase tracking-wider", isDrop ? "text-emerald-400" : "text-rose-400")}>
                             {isDrop ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-                            <span>{isDrop ? "Dropped" : "Increased"} ${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span>{isDrop ? "Dropped" : "Increased"} ₹{Math.abs(diff).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     );
                 } else {
@@ -123,7 +123,7 @@ export default function ProductDetailPage({ params }) {
             return (
                 <div className="bg-[#0c1523]/95 backdrop-blur-md border border-brand-border p-4 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] min-w-[170px] transform -translate-y-2">
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">{label}</p>
-                    <p className="text-2xl font-black text-brand-cyan">${payload[0].value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-2xl font-black text-brand-cyan">₹{payload[0].value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     <div className="h-px w-full bg-brand-border/50 my-2" />
                     {changeElement}
                 </div>
