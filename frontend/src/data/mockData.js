@@ -24,10 +24,9 @@ export const products = [
         category: 'Smartphones',
         stores: [
             { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', price: '₹1,59,900', url: 'https://amazon.in', trend: 'up' },
-            { name: 'Flipkart', logo: 'https://images.icon-icons.com/729/PNG/512/flipkart_icon-icons.com_62718.png', price: '₹1,56,900', url: 'https://flipkart.com', trend: 'down' },
-            { name: 'Croma', logo: 'https://cdn.brandfetch.io/domain/croma.com/fallback/lettermark/theme/dark/h/400/w/400/icon?c=1bfwsmEH20zzEfSNTed', price: '₹1,59,900', url: 'https://croma.com', trend: 'neutral' }
+            { name: 'eBay', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg', price: '₹1,54,900', url: 'https://ebay.com', trend: 'down' }
         ],
-        price: '₹1,56,900',
+        price: '₹1,54,900',
         change: '-7.7%',
         trend: 'down',
         updated: '2 hours ago',
@@ -39,22 +38,23 @@ export const products = [
         category: 'Audio',
         stores: [
             { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', price: '₹29,990', url: 'https://amazon.in', trend: 'down' },
-            { name: 'Reliance Digital', logo: 'https://cdn.brandfetch.io/idYe1C76vX/theme/dark/logo.svg?c=1dxbfHSJFAPEGdCLU4o5B', price: '₹31,990', url: 'https://reliancedigital.in', trend: 'up' }
+            { name: 'eBay', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg', price: '₹28,500', url: 'https://ebay.com', trend: 'down' }
         ],
-        price: '₹29,990',
+        price: '₹28,500',
         change: '-12.5%',
         trend: 'down',
         updated: '5 hours ago',
-        productImage: "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/6505/6505727_rd.jpg;maxHeight=1920;maxWidth=900?format=webp",
+        productImage: "https://pisces.bbystatic.com/image2/Bestbuy_US/images/products/6505/6505727_rd.jpg;maxHeight=1920;maxWidth=900?format=webp",
     },
     {
         id: 3,
         name: 'MacBook Pro 14"',
         category: 'Laptops',
         stores: [
-            { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', price: '₹1,69,900', url: 'https://amazon.in', trend: 'up' }
+            { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', price: '₹1,69,900', url: 'https://amazon.in', trend: 'up' },
+            { name: 'eBay', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg', price: '₹1,65,000', url: 'https://ebay.com', trend: 'neutral' }
         ],
-        price: '₹1,69,900',
+        price: '₹1,65,000',
         change: '+5.3%',
         trend: 'up',
         updated: '1 day ago',
@@ -66,26 +66,13 @@ export const products = [
         category: 'Electronics',
         stores: [
             { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', price: '₹1,24,990', url: 'https://amazon.in', trend: 'down' },
-            { name: 'Flipkart', logo: 'https://images.icon-icons.com/729/PNG/512/flipkart_icon-icons.com_62718.png', price: '₹1,22,990', url: 'https://flipkart.com', trend: 'down' }
+            { name: 'eBay', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg', price: '₹1,20,000', url: 'https://ebay.com', trend: 'down' }
         ],
-        price: '₹1,22,990',
+        price: '₹1,20,000',
         change: '-7.1%',
         trend: 'down',
         updated: '3 hours ago',
         productImage: "https://i5.walmartimages.com/seo/SAMSUNG-48-Class-S90D-OLED-Smart-TV-QN48S90DAEXZA-2024_c03d5884-29bc-49cd-9da6-dcac3c780ac6.e561d81669b03b7c72f69dfa7ea4692e.jpeg?odnHeight=573&odnWidth=573&odnBg=FFFFFF",
-    },
-    {
-        id: 5,
-        name: 'Nike Air Max 270',
-        category: 'Footwear',
-        stores: [
-            { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', price: '₹12,495', url: 'https://amazon.in', trend: 'down' }
-        ],
-        price: '₹12,495',
-        change: '-16.7%',
-        trend: 'down',
-        updated: '6 hours ago',
-        productImage: "https://static.nike.com/a/images/t_web_pw_592_v2/f_auto/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/e074bb24-56a7-44f1-b0a4-7d59a9ff16cd/AIR+MAX+270.png",
     },
 ];
 
@@ -96,7 +83,7 @@ export const alerts = [
         name: 'iPhone 15 Pro Max',
         productImage: "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRKj8NxFZGTq2Duw3kub7bAM6b-7zsd_1oF5GkGsknP4ex-A8Dk",
         targetPrice: '₹1,50,000',
-        currentPrice: '₹1,56,900',
+        currentPrice: '₹1,54,900',
         status: 'Active',
         lastChecked: '2 hours ago',
         notificationType: 'Email'
@@ -105,22 +92,11 @@ export const alerts = [
         id: 2,
         productId: 2,
         name: 'Sony WH-1000XM5',
-        productImage: "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/6505/6505727_rd.jpg;maxHeight=1920;maxWidth=900?format=webp",
+        productImage: "https://pisces.bbystatic.com/image2/Bestbuy_US/images/products/6505/6505727_rd.jpg;maxHeight=1920;maxWidth=900?format=webp",
         targetPrice: '₹28,000',
-        currentPrice: '₹29,990',
+        currentPrice: '₹28,500',
         status: 'Waiting',
         lastChecked: '5 hours ago',
         notificationType: 'Browser'
     },
-    {
-        id: 3,
-        productId: 4,
-        name: 'Samsung OLED TV 55"',
-        productImage: "https://i5.walmartimages.com/seo/SAMSUNG-48-Class-S90D-OLED-Smart-TV-QN48S90DAEXZA-2024_c03d5884-29bc-49cd-9da6-dcac3c780ac6.e561d81669b03b7c72f69dfa7ea4692e.jpeg?odnHeight=573&odnWidth=573&odnBg=FFFFFF",
-        targetPrice: '₹1,20,000',
-        currentPrice: '₹1,22,990',
-        status: 'Triggered',
-        lastChecked: '1 day ago',
-        notificationType: 'Push'
-    }
 ];

@@ -68,9 +68,6 @@ async function scrapeAmazonPrice(url) {
     return scrapeGeneric(url);
 }
 
-async function scrapeFlipkartPrice(url) {
-    return scrapeGeneric(url);
-}
 
 async function scrapeGeneric(url) {
     try {
@@ -95,7 +92,6 @@ async function scrapeGeneric(url) {
 async function scrapeByUrl(url) {
     const host = getHostname(url) || '';
     if (host.includes('amazon.')) return scrapeAmazonPrice(url);
-    if (host.includes('flipkart.')) return scrapeFlipkartPrice(url);
     return scrapeGeneric(url);
 }
 

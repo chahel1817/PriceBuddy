@@ -177,21 +177,23 @@ export default function Dashboard() {
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Market Overview</h1>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-cyan/10 border border-brand-cyan/20 rounded-full">
-                <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
-                <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">Live Updates</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-cyan/10 border border-brand-cyan/20 rounded-full">
+                  <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
+                  <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">Live Updates</span>
+                </div>
+                {lastUpdated && (
+                  <div className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-1.5">
+                    <RefreshCcw className="w-2.5 h-2.5 text-gray-600" />
+                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">
+                      Last Synced: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 text-gray-500 text-sm">
               <p>Real-time price intelligence and competitive analytics.</p>
-              {lastUpdated && (
-                <>
-                  <span className="w-1 h-1 bg-gray-700 rounded-full" />
-                  <p className="text-xs italic font-medium">
-                    Last synced: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </>
-              )}
             </div>
           </div>
 

@@ -34,9 +34,7 @@ function ProductCard({ product, onTrack, isTracked, isTracking }) {
     const store = product.store || 'Store';
     const badgeTone = store.toLowerCase().includes('amazon')
         ? 'bg-amber-400 text-black border-amber-300'
-        : store.toLowerCase().includes('flipkart')
-            ? 'bg-blue-500 text-white border-blue-400'
-            : 'bg-brand-cyan text-brand-bg border-brand-cyan/80';
+        : 'bg-brand-cyan text-brand-bg border-brand-cyan/80';
 
     return (
         <div className={cn(

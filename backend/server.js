@@ -19,7 +19,7 @@ process.on('uncaughtException', (error) => {
 });
 
 
-const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY; // e.g., scraperapi.com key for Amazon/Flipkart bypass
+const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY; // e.g., scraperapi.com key for Amazon/eBay bypass
 const SERPAPI_KEY = process.env.SERPAPI_KEY; // Optional Amazon product API via SerpApi
 const AMAZON_DOMAIN = process.env.AMAZON_DOMAIN || 'amazon.com';
 const PULSE_CRON = process.env.PULSE_CRON || '0 */6 * * *'; // default every 6 hours
@@ -57,7 +57,6 @@ app.use(express.json());
 
 const EBAY_LOGO = "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg";
 const AMAZON_LOGO = "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg";
-const FLIPKART_LOGO = "https://upload.wikimedia.org/wikipedia/en/7/7a/Flipkart_logo.svg";
 
 /**
  * Detect store name and logo from a product URL.
@@ -66,7 +65,6 @@ function detectStore(productUrl) {
     if (!productUrl) return { store: 'Unknown', storeLogo: null };
     const host = (getHostname(productUrl) || '').toLowerCase();
     if (host.includes('amazon')) return { store: 'Amazon', storeLogo: AMAZON_LOGO };
-    if (host.includes('flipkart')) return { store: 'Flipkart', storeLogo: FLIPKART_LOGO };
     if (host.includes('ebay')) return { store: 'eBay', storeLogo: EBAY_LOGO };
     return { store: host.split('.')[0] || 'Store', storeLogo: null };
 }
@@ -191,13 +189,6 @@ const cleanUrl = (value) => {
             const asinMatch = url.pathname.match(/\/([A-Z0-9]{10})(?:[/?]|$)/);
             if (asinMatch) {
                 return `https://${url.hostname}/dp/${asinMatch[1]}`;
-            }
-        }
-        // Flipkart canonical: keep pid
-        if (url.hostname.includes('flipkart.')) {
-            const pidMatch = url.searchParams.get('pid');
-            if (pidMatch) {
-                return `https://${url.hostname}${url.pathname.split('/p/')[0] || ''}/p?pid=${pidMatch}`;
             }
         }
         // General cleaning: Strip query params except for common IDs
@@ -325,25 +316,6 @@ async function scrapeAmazonPrice(url) {
     }
 }
 
-/**
- * Scrape price from Flipkart product page.
- */
-async function scrapeFlipkartPrice(url) {
-    try {
-        const { data } = await fetchHtml(url);
-        const $ = cheerio.load(data);
-        const priceText =
-            $('._30jeq3._16Jk6d').text() ||
-            $('._25b18c ._30jeq3').text() ||
-            $('[itemprop="price"]').attr('content');
-        if (!priceText) return null;
-        const cleanPrice = priceText.replace(/[^\d.]/g, '');
-        return cleanPrice ? parseFloat(cleanPrice) : null;
-    } catch (e) {
-        console.error("Flipkart scrape error for", url, e.message);
-        return null;
-    }
-}
 
 /**
  * Shared HTML fetcher with optional ScraperAPI proxy to bypass bot checks.
@@ -376,8 +348,6 @@ async function scrapePriceByUrl(url) {
     } else if (hostname.includes('amazon.')) {
         price = await scrapeAmazonPrice(url);
         if (price) price = price * USD_TO_INR; // Convert Amazon USD to INR
-    } else if (hostname.includes('flipkart.')) {
-        price = await scrapeFlipkartPrice(url);
     } else {
         price = await scrapeEbayPrice(url);
         if (price) price = price * USD_TO_INR;
@@ -950,7 +920,7 @@ cron.schedule(PULSE_CRON, async () => {
                 if (hasPreviousPrice && isDrop && metTarget) {
                     const savings = (oldPrice - currentPrice).toFixed(2);
                     const { store, storeLogo } = detectStore(row.product_url);
-                    const themeColor = store === 'Amazon' ? '#FF9900' : (store === 'eBay' ? '#00E5FF' : '#2874f0');
+                    const themeColor = store === 'Amazon' ? '#FF9900' : '#00E5FF';
 
                     console.log(`📉 ALERT: Price Drop for ${row.name} on ${store}! Met Target: ${targetPrice ? `₹${targetPrice}` : 'N/A'}. Sending email to ${row.user_email}`);
 
