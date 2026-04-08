@@ -342,15 +342,19 @@ async function scrapePriceByUrl(url) {
     const hostname = getHostname(url) || '';
     let price = null;
 
+    // Check if the store is likely already in INR (ends with .in)
+    const isLocalStore = hostname.endsWith('.in');
+
     if (hostname.includes('ebay')) {
         price = await scrapeEbayPrice(url);
-        if (price) price = price * USD_TO_INR; // Convert eBay USD to INR
     } else if (hostname.includes('amazon.')) {
         price = await scrapeAmazonPrice(url);
-        if (price) price = price * USD_TO_INR; // Convert Amazon USD to INR
     } else {
         price = await scrapeEbayPrice(url);
-        if (price) price = price * USD_TO_INR;
+    }
+
+    if (price && !isLocalStore) {
+        price = price * USD_TO_INR; // Convert global USD prices to INR
     }
 
     return price ? parseFloat(price.toFixed(2)) : null;
@@ -851,11 +855,13 @@ app.post(['/login', '/api/login'], async (req, res) => {
     }
 });
 
-// ── Automated Price Pulse (every 6 hours) ───────────────────────────
-cron.schedule(PULSE_CRON, async () => {
-    console.log(`? Pulsing (${PULSE_CRON}): Checking tracked products for market changes & price drops...`);
+/**
+ * Core Logic for Syncing Prices
+ * Can be triggered by CRON or manually by a user via the UI.
+ */
+async function runPriceSync(targetUserId = null, forceSync = false) {
+    console.log(`📡 Sync Initiated: ${targetUserId ? `User ${targetUserId}` : 'System-wide'} ${forceSync ? '(FORCED)' : ''}`);
 
-    // 1. Setup Email Transporter (Gmail ready)
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -865,109 +871,105 @@ cron.schedule(PULSE_CRON, async () => {
     });
 
     try {
-        // Fetch products, their target prices, and the user's email for alerts
-        const [rows] = await pool.query(`
+        let query = `
             SELECT 
                 s.id, s.product_url, s.last_price as old_price, s.target_price, p.name, u.email as user_email,
                 (SELECT MAX(scraped_at) FROM price_history ph WHERE ph.product_source_id = s.id) as last_scraped_at
             FROM product_sources s
             JOIN products p ON s.product_id = p.id
             JOIN users u ON p.user_id = u.id
-        `);
+        `;
+        let params = [];
 
+        if (targetUserId) {
+            query += " WHERE p.user_id = ?";
+            params.push(targetUserId);
+        }
+
+        const [rows] = await pool.query(query, params);
         let serpapiCalls = 0;
 
         for (const row of rows) {
             const hostname = getHostname(row.product_url) || '';
 
-            // Save SerpApi calls: skip Amazon if refreshed in last 24h, daily cap reached, or monthly limit hit
+            // Optimization for Amazon: limit calls unless forced
             if (hostname.includes('amazon.')) {
-                if (!canUseSerpApi()) {
-                    console.log(`🚦 SerpAPI monthly limit (${SERPAPI_MONTHLY_LIMIT}) reached; skipping Amazon source ${row.id}`);
-                    continue;
-                }
+                if (!canUseSerpApi()) continue;
+
                 const last = row.last_scraped_at ? new Date(row.last_scraped_at) : null;
                 const tooRecent = last && (Date.now() - last.getTime() < 24 * 60 * 60 * 1000);
-                if (tooRecent) {
-                    console.log(`⏳ Skipping Amazon source ${row.id} (refreshed <24h ago)`);
+
+                if (tooRecent && !forceSync) {
+                    console.log(`⏳ Skipping Amazon ${row.id} - Refreshed recently.`);
                     continue;
                 }
-                if (serpapiCalls >= SERPAPI_DAILY_CAP) {
-                    console.log(`🚦 SerpApi daily cap (${SERPAPI_DAILY_CAP}) reached; skipping Amazon source ${row.id}`);
+
+                if (serpapiCalls >= SERPAPI_DAILY_CAP && !forceSync) {
+                    console.log(`🚦 SerpApi Cap reached - Skipping Amazon ${row.id}`);
                     continue;
                 }
+
                 serpapiCalls += 1;
-                trackSerpApiCall();
             }
 
             const freshPrice = await scrapePriceByUrl(row.product_url);
 
-            // Accept zero-priced items and ensure we still set a baseline
             if (freshPrice !== null && freshPrice !== undefined) {
                 const oldPrice = parseFloat(row.old_price);
                 const targetPrice = row.target_price ? parseFloat(row.target_price) : null;
-                const hasPreviousPrice = Number.isFinite(oldPrice);
                 const currentPrice = parseFloat(freshPrice);
 
-                // Update database
+                // Update DB
                 await pool.query('UPDATE product_sources SET last_price = ? WHERE id = ?', [currentPrice, row.id]);
                 await pool.query('INSERT INTO price_history (product_source_id, price) VALUES (?, ?)', [row.id, currentPrice]);
 
-                // PRICE DROP DETECTION AND TARGET ALERT
+                // Alert Detection
                 const isDrop = currentPrice < oldPrice;
                 const metTarget = targetPrice ? currentPrice <= targetPrice : true;
 
-                if (hasPreviousPrice && isDrop && metTarget) {
+                if (Number.isFinite(oldPrice) && isDrop && metTarget) {
                     const savings = (oldPrice - currentPrice).toFixed(2);
                     const { store, storeLogo } = detectStore(row.product_url);
                     const themeColor = store === 'Amazon' ? '#FF9900' : '#00E5FF';
 
-                    console.log(`📉 ALERT: Price Drop for ${row.name} on ${store}! Met Target: ${targetPrice ? `₹${targetPrice}` : 'N/A'}. Sending email to ${row.user_email}`);
-
-                    const mailOptions = {
+                    await transporter.sendMail({
                         from: `"PriceBuddy ${store} Alerts" <${process.env.EMAIL_USER}>`,
                         to: row.user_email,
-                        subject: `📉 ${store} PRICE DROP: ${row.name} just got cheaper!`,
-                        html: `
-                            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0; margin: 0; background-color: #f9f9f9;">
-                                <div style="max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eee;">
-                                    <div style="background: ${themeColor}; padding: 30px; text-align: center;">
-                                        ${storeLogo ? `<img src="${storeLogo}" alt="${store}" style="height: 40px; filter: brightness(0) invert(1);" />` : `<h1 style="color: white; margin: 0;">${store}</h1>`}
-                                        <h2 style="color: white; margin-top: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Price Drop Detected!</h2>
-                                    </div>
-                                    <div style="padding: 40px 30px;">
-                                        <p style="color: #666; font-size: 16px; line-height: 1.6;">Hello, we found an amazing deal for a product you're tracking on <strong>${store}</strong>:</p>
-                                        <div style="margin: 30px 0; padding: 20px; background: #f0fdf4; border-radius: 10px; border: 1px solid #dcfce7;">
-                                            <h3 style="margin: 0 0 15px 0; color: #111; font-size: 18px;">${row.name}</h3>
-                                            <div style="display: flex; align-items: baseline; gap: 15px;">
-                                                <span style="font-size: 28px; font-weight: 900; color: #16a34a;">₹${currentPrice.toLocaleString()}</span>
-                                                <span style="font-size: 18px; color: #94a3b8; text-decoration: line-through; margin-left: 10px;">₹${oldPrice.toLocaleString()}</span>
-                                            </div>
-                                            <p style="color: #16a34a; font-weight: bold; margin: 10px 0 0 0; font-size: 14px;">⚡ You are saving ₹${savings}!</p>
-                                        </div>
-                                        <div style="text-align: center; margin-top: 35px;">
-                                            <a href="${row.product_url}" style="display: inline-block; padding: 16px 35px; background: ${themeColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 10px ${themeColor}44;">View Item On ${store}</a>
-                                        </div>
-                                    </div>
-                                    <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #f1f5f9;">
-                                        <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
-                                            This is an automated alert from your PriceBuddy Dashboard.<br/>
-                                            You're receiving this because you're tracking this item.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        `
-                    };
-
-                    await transporter.sendMail(mailOptions);
+                        subject: `📉 ${store} PRICE DROP: ${row.name}`,
+                        html: `<div style="padding: 20px; font-family: sans-serif;">
+                            <h2>Price Drop Detected for ${row.name}!</h2>
+                            <p>Current Price: <strong>₹${currentPrice.toLocaleString()}</strong> (was ₹${oldPrice.toLocaleString()})</p>
+                            <p>You are saving ₹${savings}!</p>
+                            <a href="${row.product_url}" style="padding: 10px 20px; background: ${themeColor}; color: white; border-radius: 5px; text-decoration: none;">View Detail</a>
+                        </div>`
+                    }).catch(err => console.error("Email fail:", err.message));
                 }
-
-                console.log(`✅ Pulse Update: Source ${row.id} checked. New price: $${currentPrice}`);
+                console.log(`✅ Updated ${row.name} to ₹${currentPrice}`);
             }
         }
+        return { success: true, count: rows.length };
     } catch (e) {
-        console.error('Pulse Sync/Email Error:', e);
+        console.error('Core Sync Error:', e);
+        throw e;
+    }
+}
+
+// ── Automated Price Pulse ───────────────────────────────────────────
+cron.schedule(PULSE_CRON, () => {
+    console.log(`⏰ Scheduled Pulse (${PULSE_CRON})`);
+    runPriceSync().catch(console.error);
+});
+
+// ── Manual Sync Endpoint ────────────────────────────────────────────
+app.post('/api/sync-now', async (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ success: false, message: "user_id required" });
+
+    try {
+        const result = await runPriceSync(user_id, true);
+        res.json({ success: true, message: `Sync completed for ${result.count} items.`, data: result });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
