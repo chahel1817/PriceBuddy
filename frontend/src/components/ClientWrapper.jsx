@@ -16,20 +16,19 @@ export default function ClientWrapper({ children }) {
 
     useEffect(() => {
         const user = localStorage.getItem('user');
+        const loggedIn = !!user;
+        setIsAuthenticated(loggedIn);
 
-        if (user) {
-            setIsAuthenticated(true);
-            // If logged in and hitting landing, go to dashboard
-            if (isLandingPage) {
-                router.push('/dashboard');
-            }
-        } else {
-            setIsAuthenticated(false);
-            // If not logged in and not on a public page, go to login
-            if (!isPublicPage) {
-                router.push('/login');
-            }
+        if (loggedIn && (isLandingPage || isAuthPage)) {
+            router.replace('/dashboard');
+            return;
         }
+
+        if (!loggedIn && !isPublicPage) {
+            router.replace('/login');
+            return;
+        }
+
         setLoading(false);
     }, [pathname, router, isPublicPage, isLandingPage]);
 

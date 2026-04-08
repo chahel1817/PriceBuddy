@@ -182,14 +182,6 @@ export default function Dashboard() {
                   <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
                   <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">Live Updates</span>
                 </div>
-                {lastUpdated && (
-                  <div className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-1.5">
-                    <RefreshCcw className="w-2.5 h-2.5 text-gray-600" />
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest whitespace-nowrap">
-                      Last Synced: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
             <div className="flex items-center gap-2 text-gray-500 text-sm">
@@ -328,15 +320,27 @@ export default function Dashboard() {
           <div className="p-6 flex items-center justify-between border-b border-brand-border/50">
             <div className="flex flex-col gap-1">
               <h3 className="font-black text-white uppercase tracking-wider text-sm italic">Live Tracking Board</h3>
-              <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest">Active nodes from Amazon & eBay</p>
+              <div className="flex items-center gap-3">
+                <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest leading-none">Active nodes from Amazon & eBay</p>
+                {lastUpdated && (
+                  <div className="flex items-center gap-2 group/time">
+                    <div className="w-1 h-1 bg-brand-cyan/40 rounded-full" />
+                    <span className="text-[9px] font-black text-brand-cyan/40 uppercase tracking-widest">
+                      Last Sync: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            <button
-              onClick={() => router.push('/products')}
-              className="text-[10px] font-black text-brand-cyan hover:text-white transition-colors tracking-widest uppercase flex items-center gap-2 group px-4 py-2 bg-brand-cyan/5 border border-brand-cyan/20 rounded-xl"
-            >
-              View All Assets
-              <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/products')}
+                className="text-[10px] font-black text-gray-400 hover:text-white transition-colors tracking-widest uppercase flex items-center gap-2 group px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl hover:border-brand-cyan/30"
+              >
+                View Analytics
+                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">

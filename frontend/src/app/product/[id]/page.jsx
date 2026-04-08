@@ -186,12 +186,6 @@ export default function ProductDetailPage({ params }) {
                     <div className="lg:col-span-8 space-y-8">
                         {/* Hero Card */}
                         <div className="bg-[#111827] border border-brand-border rounded-[3rem] p-8 md:p-12 relative overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-                            <div className="absolute top-0 right-0 p-10 hidden md:block">
-                                <span className={cn("px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border backdrop-blur-md shadow-lg", trend.bg, trend.color, trend.border)}>
-                                    Intelligence Active
-                                </span>
-                            </div>
-
                             <div className="flex flex-col md:flex-row gap-12 md:items-center relative z-10">
                                 <div className="w-full md:w-64 aspect-square bg-white rounded-[2.5rem] p-8 shadow-2xl border border-brand-border flex items-center justify-center transform hover:scale-105 transition-transform duration-700 relative group/img">
                                     <div className="absolute inset-4 bg-gradient-to-tr from-brand-cyan/5 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
@@ -203,6 +197,9 @@ export default function ProductDetailPage({ params }) {
                                 </div>
                                 <div className="flex-1 space-y-6">
                                     <div className="flex flex-wrap gap-3">
+                                        <span className={cn("px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] border backdrop-blur-md shadow-inner", trend.bg, trend.color, trend.border)}>
+                                            Intelligence Active
+                                        </span>
                                         <span className="px-4 py-1.5 bg-[#0c1523] border border-brand-border rounded-xl text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] shadow-inner">
                                             {product.category}
                                         </span>
@@ -432,30 +429,32 @@ export default function ProductDetailPage({ params }) {
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
             <ReactTooltip id="p-tip" style={{ backgroundColor: "#0c1523" }} />
 
             {/* Target Success Modal */}
-            {showSuccessModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSuccessModal(false)} />
-                    <div className="relative bg-[#0c1829] border border-brand-cyan/25 p-8 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,229,255,0.15)] max-w-sm w-full text-center animate-in zoom-in-95 fade-in duration-300">
-                        <div className="w-20 h-20 bg-brand-cyan/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border-2 border-brand-cyan/20">
-                            <ShieldCheck className="w-10 h-10 text-brand-cyan" />
+            {
+                showSuccessModal && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowSuccessModal(false)} />
+                        <div className="relative bg-[#0c1829] border border-brand-cyan/25 p-8 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,229,255,0.15)] max-w-sm w-full text-center animate-in zoom-in-95 fade-in duration-300">
+                            <div className="w-20 h-20 bg-brand-cyan/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border-2 border-brand-cyan/20">
+                                <ShieldCheck className="w-10 h-10 text-brand-cyan" />
+                            </div>
+                            <h3 className="text-white font-black uppercase tracking-tight text-xl mb-3 italic">Alert Armed! 🎯</h3>
+                            <p className="text-gray-400 text-[11px] leading-relaxed font-bold uppercase tracking-[0.1em] mb-8">
+                                A precision alert has been set. You will receive an email at <span className="text-brand-cyan font-black">{userEmail}</span> as soon as <span className="text-white font-black">{product.name}</span> hits <span className="text-brand-cyan font-black">₹{parseFloat(targetDisplay).toLocaleString('en-IN')}</span>.
+                            </p>
+                            <button
+                                onClick={() => setShowSuccessModal(false)}
+                                className="w-full py-4 bg-brand-cyan text-brand-bg font-black rounded-2xl text-[11px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-brand-cyan/30"
+                            >
+                                Understood
+                            </button>
                         </div>
-                        <h3 className="text-white font-black uppercase tracking-tight text-xl mb-3 italic">Alert Armed! 🎯</h3>
-                        <p className="text-gray-400 text-[11px] leading-relaxed font-bold uppercase tracking-[0.1em] mb-8">
-                            A precision alert has been set. You will receive an email at <span className="text-brand-cyan font-black">{userEmail}</span> as soon as <span className="text-white font-black">{product.name}</span> hits <span className="text-brand-cyan font-black">₹{parseFloat(targetDisplay).toLocaleString('en-IN')}</span>.
-                        </p>
-                        <button
-                            onClick={() => setShowSuccessModal(false)}
-                            className="w-full py-4 bg-brand-cyan text-brand-bg font-black rounded-2xl text-[11px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-brand-cyan/30"
-                        >
-                            Understood
-                        </button>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

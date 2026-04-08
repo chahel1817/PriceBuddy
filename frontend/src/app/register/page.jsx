@@ -78,8 +78,8 @@ export default function RegisterPage() {
                 // Save basic session (you'd normally use JWT/Cookies)
                 localStorage.setItem('user', JSON.stringify(data.user));
                 setTimeout(() => {
-                    router.push('/');
-                }, 1500);
+                    router.push('/dashboard');
+                }, 800);
             } else {
                 setError(data.message || "Registration failed.");
             }
