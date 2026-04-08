@@ -66,6 +66,20 @@ mysql -u your_user -p your_database < backend/schema.sql
    ```
 4. Start the development server: `npm run dev`.
 
+## 🏗️ Demo & Simulation
+
+If you want to showcase the real-time capabilities of PriceBuddy (Dashboard updates, Chart movements, and Email alerts) without waiting for a real-market price drop, use the simulation script:
+
+1. **Navigate to the backend:**
+   ```bash
+   cd backend
+   ```
+2. **Run the simulation:**
+   ```bash
+   node simulate_demo.js
+   ```
+This script will pick a product in your database, artificially drop its price by 10%, update the history, and trigger an automated email alert—instantly showing the full power of PriceBuddy.
+
 ## 🤝 Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 

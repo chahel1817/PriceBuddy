@@ -3,19 +3,28 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 async function simulatePriceUpdate() {
-    console.log("🎯 PriceBuddy Demo Script: Simulating Price Fluctuation...");
+    const targetProductId = process.argv[2]; // e.g. node simulate_demo.js 5
+
+    console.log(`🎯 PriceBuddy Demo Script: ${targetProductId ? `Targeting Product ID ${targetProductId}` : 'Simulating Latest Product'}...`);
 
     try {
-        // 1. Fetch a product to update (Preferably one with a target_price set)
-        const [rows] = await pool.query(`
+        let query = `
             SELECT 
-                s.id as source_id, s.last_price, s.target_price, p.name, u.email as user_email, u.id as user_id
+                s.id as source_id, s.last_price, s.target_price, p.name, u.email as user_email, u.id as user_id, p.id as product_id, u.notifications_active
             FROM product_sources s
             JOIN products p ON s.product_id = p.id
             JOIN users u ON p.user_id = u.id
-            ORDER BY s.id DESC
-            LIMIT 1
-        `);
+        `;
+        let params = [];
+
+        if (targetProductId) {
+            query += " WHERE p.id = ? ";
+            params.push(targetProductId);
+        } else {
+            query += " ORDER BY s.id DESC LIMIT 1 ";
+        }
+
+        const [rows] = await pool.query(query, params);
 
         if (rows.length === 0) {
             console.log("❌ No products found in database to simulate.");
@@ -36,13 +45,24 @@ async function simulatePriceUpdate() {
 
         // 3. Update Database
         await pool.query('UPDATE product_sources SET last_price = ? WHERE id = ?', [newPrice, product.source_id]);
-        await pool.query('INSERT INTO price_history (product_source_id, price) VALUES (?, ?)', [product.source_id, newPrice]);
 
-        console.log("✅ Database updated successfully.");
+        // 3.1 Demo Logic: Ensure we have at least 2 points to show a curve
+        const [historyCheck] = await pool.query('SELECT count(*) as count FROM price_history WHERE product_source_id = ?', [product.source_id]);
+
+        if (historyCheck[0].count === 0 && oldPrice > 0) {
+            // Insert the OLD price as a point 15 minutes ago so the chart has a starting point
+            const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+            await pool.query('INSERT INTO price_history (product_source_id, price, scraped_at) VALUES (?, ?, ?)', [product.source_id, oldPrice, fifteenMinsAgo]);
+        }
+
+        // Insert the NEW price drop point
+        await pool.query('INSERT INTO price_history (product_source_id, price, scraped_at) VALUES (?, ?, ?)', [product.source_id, newPrice, new Date()]);
+
+        console.log("✅ Database updated with trend points.");
 
         // 4. Send Email Alert (The Full Demo Loop)
         const targetPrice = product.target_price ? parseFloat(product.target_price) : null;
-        if (newPrice < oldPrice && (!targetPrice || newPrice <= targetPrice)) {
+        if (newPrice < oldPrice && (!targetPrice || newPrice <= targetPrice) && product.notifications_active) {
             console.log("📧 Conditions met! Sending demo email alert...");
 
             const transporter = nodemailer.createTransport({

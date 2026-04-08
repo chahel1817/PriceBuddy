@@ -80,10 +80,17 @@ export default function ProductDetailPage({ params }) {
 
     const priceHistory = (product.history || [])
         .map(h => ({
-            date: new Date(h.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+            date: new Date(h.created_at).toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }),
             price: parseFloat(h.price)
         }))
-        .filter(item => isFinite(item.price) && item.price > 0 && item.price < 50000); // Filter out outliers or common errors like 999999
+        .filter(item => isFinite(item.price) && item.price > 0 && item.price < 500000); // Increased limit to 500k to support high-end devices like iPhone Pro Max / Samsung Ultra
 
     // Dynamic Trend Detection
     const getTrendStatus = () => {
@@ -382,9 +389,10 @@ export default function ProductDetailPage({ params }) {
                                                 dataKey="date"
                                                 axisLine={false}
                                                 tickLine={false}
-                                                tick={{ fill: "#64748b", fontSize: 11, fontWeight: 800 }}
+                                                tick={{ fill: "#64748b", fontSize: 9, fontWeight: 900 }}
                                                 dy={15}
                                                 padding={{ left: 30, right: 30 }}
+                                                minTickGap={50}
                                             />
                                             <YAxis
                                                 axisLine={false}

@@ -117,6 +117,15 @@ app.get('/products', async (req, res) => {
 
         const [rows] = await pool.query(query, params);
 
+        // Fetch history for each product to power dashboard charts
+        for (let row of rows) {
+            const [history] = await pool.query(
+                'SELECT price, scraped_at as created_at FROM price_history WHERE product_source_id = ? ORDER BY scraped_at DESC LIMIT 20',
+                [row.source_id]
+            );
+            row.history = history;
+        }
+
         // ── Calculate Stats for Dashboard ─────────────────────────
         let totalDrop = 0;
         let dropCount = 0;
@@ -393,7 +402,7 @@ app.post(['/products', '/api/products'], async (req, res) => {
 
         // 3. Record history if price found (use product_source_id)
         if (initialPrice) {
-            await connection.query("INSERT INTO price_history (product_source_id, price) VALUES (?, ?)", [sourceId, initialPrice]);
+            await connection.query("INSERT INTO price_history (product_source_id, price, scraped_at) VALUES (?, ?, ?)", [sourceId, initialPrice, new Date()]);
         }
 
         await connection.commit();
@@ -873,7 +882,7 @@ async function runPriceSync(targetUserId = null, forceSync = false) {
     try {
         let query = `
             SELECT 
-                s.id, s.product_url, s.last_price as old_price, s.target_price, p.name, u.email as user_email,
+                s.id, s.product_url, s.last_price as old_price, s.target_price, p.name, u.email as user_email, u.notifications_active,
                 (SELECT MAX(scraped_at) FROM price_history ph WHERE ph.product_source_id = s.id) as last_scraped_at
             FROM product_sources s
             JOIN products p ON s.product_id = p.id
@@ -921,13 +930,13 @@ async function runPriceSync(targetUserId = null, forceSync = false) {
 
                 // Update DB
                 await pool.query('UPDATE product_sources SET last_price = ? WHERE id = ?', [currentPrice, row.id]);
-                await pool.query('INSERT INTO price_history (product_source_id, price) VALUES (?, ?)', [row.id, currentPrice]);
+                await pool.query('INSERT INTO price_history (product_source_id, price, scraped_at) VALUES (?, ?, ?)', [row.id, currentPrice, new Date()]);
 
                 // Alert Detection
                 const isDrop = currentPrice < oldPrice;
                 const metTarget = targetPrice ? currentPrice <= targetPrice : true;
 
-                if (Number.isFinite(oldPrice) && isDrop && metTarget) {
+                if (Number.isFinite(oldPrice) && isDrop && metTarget && row.notifications_active) {
                     const savings = (oldPrice - currentPrice).toFixed(2);
                     const { store, storeLogo } = detectStore(row.product_url);
                     const themeColor = store === 'Amazon' ? '#FF9900' : '#00E5FF';

@@ -34,7 +34,7 @@ const StatCard = ({ title, value, change, isPositive, icon: Icon }) => (
         </div>
       )}
       {change === null && (
-        <p className="text-xs text-gray-700 mt-2 font-medium italic">No data yet</p>
+        <p className="text-[10px] text-gray-700 mt-2 font-black uppercase tracking-widest">{isPositive ? 'Market Active' : 'Analyzing Trends'}</p>
       )}
     </div>
   </div>
@@ -58,6 +58,58 @@ export default function Dashboard() {
   const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
   const [stats, setStats] = React.useState({ avgPriceDrop: 0, totalSavings: 0, productCount: 0 });
   const router = useRouter();
+
+  // ── Data Processing for Charts ────────────────────────
+  const globalHistoryData = React.useMemo(() => {
+    if (productsList.length === 0) return [];
+
+    const allHistory = productsList.flatMap(p => (p.history || []).map(h => ({
+      productId: p.id,
+      price: parseFloat(h.price),
+      rawDate: new Date(h.created_at)
+    }))).sort((a, b) => a.rawDate - b.rawDate);
+
+    if (allHistory.length === 0) return [];
+
+    // Get unique moments in time across all products
+    const uniqueTimePoints = [...new Set(allHistory.map(h => h.rawDate.getTime()))].sort((a, b) => a - b);
+    const lastKnownPrices = {};
+
+    return uniqueTimePoints.map(t => {
+      allHistory.filter(h => h.rawDate.getTime() === t).forEach(h => {
+        lastKnownPrices[h.productId] = h.price;
+      });
+      const totalValue = Object.values(lastKnownPrices).reduce((sum, val) => sum + val, 0);
+      return {
+        date: new Date(t).toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }),
+        price: parseFloat(totalValue.toFixed(2)),
+        rawDate: t
+      };
+    });
+  }, [productsList]);
+
+  const categoryData = React.useMemo(() => {
+    if (productsList.length === 0) return [];
+    const categories = productsList.reduce((acc, curr) => {
+      const catName = curr.category || 'Other';
+      if (!acc[catName]) acc[catName] = { name: catName, value: 0, count: 0 };
+      acc[catName].value += parseFloat(curr.last_price || 0);
+      acc[catName].count += 1;
+      return acc;
+    }, {});
+
+    return Object.values(categories).map(c => ({
+      name: c.name,
+      value: parseFloat((c.value / c.count).toFixed(2))
+    }));
+  }, [productsList]);
 
   const ranges = ['7D', '1M', '3M', '6M', '1Y'];
 
@@ -107,7 +159,8 @@ export default function Dashboard() {
             storeLogo: p.storeLogo,
             target_price: p.target_price,
             price_val: current,
-            scraped_at_val: p.scraped_at ? new Date(p.scraped_at).getTime() : 0
+            scraped_at_val: p.scraped_at ? new Date(p.scraped_at).getTime() : 0,
+            history: p.history || []
           };
         });
         setProductsList(mapped);
@@ -277,13 +330,52 @@ export default function Dashboard() {
             </div>
 
             <div className="flex-1 px-4 pb-5 min-h-[250px] flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2 text-center px-6">
-                <div className="w-8 h-8 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center">
-                  <TrendingDown className="w-4 h-4 text-brand-cyan/50" />
+              {globalHistoryData.length > 0 ? (
+                <div className="h-full w-full pt-4">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <AreaChart data={globalHistoryData}>
+                      <defs>
+                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#00E5FF" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        hide={false}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: "#64748b", fontSize: 9, fontWeight: 900 }}
+                        minTickGap={30}
+                      />
+                      <YAxis hide domain={['auto', 'auto']} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0c1523', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '10px' }}
+                        itemStyle={{ color: '#00E5FF', fontWeight: '900' }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="price"
+                        stroke="#00E5FF"
+                        strokeWidth={4}
+                        fillOpacity={1}
+                        fill="url(#colorPrice)"
+                        dot={{ r: 4, fill: "#0c1523", stroke: "#00E5FF", strokeWidth: 2 }}
+                        activeDot={{ r: 6, fill: "#00E5FF", stroke: "#0c1523", strokeWidth: 2 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
-                <p className="text-xs font-black text-gray-600 uppercase tracking-widest">No price history available</p>
-                <p className="text-[10px] text-gray-700">Add products and wait for the next price sync</p>
-              </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-center px-6">
+                  <div className="w-8 h-8 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center">
+                    <TrendingDown className="w-4 h-4 text-brand-cyan/50" />
+                  </div>
+                  <p className="text-xs font-black text-gray-600 uppercase tracking-widest">No price history available</p>
+                  <p className="text-[10px] text-gray-700">Add products and wait for the next price sync</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -303,13 +395,29 @@ export default function Dashboard() {
             </div>
 
             <div className="flex-1 px-4 pb-5 min-h-[250px] flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2 text-center px-6">
-                <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                  <BarChart3 className="w-4 h-4 text-violet-400/50" />
+              {categoryData.length > 0 ? (
+                <div className="h-full w-full pt-4">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={categoryData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                      <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis hide />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0c1523', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '10px' }}
+                      />
+                      <Line type="stepAfter" dataKey="value" stroke="#8b5cf6" strokeWidth={3} dot={{ fill: '#8b5cf6', r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-                <p className="text-xs font-black text-gray-600 uppercase tracking-widest">No category data</p>
-                <p className="text-[10px] text-gray-700">Trends will appear as your products are updated</p>
-              </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-center px-6">
+                  <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                    <BarChart3 className="w-4 h-4 text-violet-400/50" />
+                  </div>
+                  <p className="text-xs font-black text-gray-600 uppercase tracking-widest">No category data</p>
+                  <p className="text-[10px] text-gray-700">Trends will appear as your products are updated</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
