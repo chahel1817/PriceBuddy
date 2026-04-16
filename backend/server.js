@@ -27,7 +27,28 @@ const SERPAPI_DAILY_CAP = parseInt(process.env.SERPAPI_DAILY_CAP || '2', 10); //
 const SERPAPI_MONTHLY_LIMIT = parseInt(process.env.SERPAPI_MONTHLY_LIMIT || '250', 10);
 const app = express();
 const PORT = process.env.PORT || 5001;
-const USD_TO_INR = 83.0; // Conversion rate
+let USD_TO_INR = 85.5; // Fallback conversion rate
+let lastExchangeRateFetch = 0;
+
+/**
+ * Fetch live USD→INR exchange rate (cached for 6 hours).
+ * Falls back to the last known rate on failure.
+ */
+async function getUsdToInr() {
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    if (Date.now() - lastExchangeRateFetch < SIX_HOURS) return USD_TO_INR;
+    try {
+        const { data } = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 5000 });
+        if (data?.rates?.INR) {
+            USD_TO_INR = data.rates.INR;
+            lastExchangeRateFetch = Date.now();
+            console.log(`💱 Exchange rate updated: 1 USD = ₹${USD_TO_INR}`);
+        }
+    } catch (e) {
+        console.warn('⚠️ Failed to fetch exchange rate, using cached:', USD_TO_INR);
+    }
+    return USD_TO_INR;
+}
 
 // ── SerpAPI Monthly Usage Tracker ────────────────────────────────
 // Resets automatically on the 1st of each month
@@ -99,7 +120,7 @@ app.get('/products', async (req, res) => {
             SELECT p.*, s.id as source_id, s.product_url, s.last_price, s.target_price,
             (SELECT ph.price FROM price_history ph 
              WHERE ph.product_source_id = s.id 
-             ORDER BY ph.scraped_at DESC LIMIT 1 OFFSET 1) as prev_price,
+             AND ph.price != s.last_price ORDER BY ph.scraped_at DESC LIMIT 1) as prev_price,
             (SELECT ph.scraped_at FROM price_history ph
              WHERE ph.product_source_id = s.id
              ORDER BY ph.scraped_at DESC LIMIT 1) as scraped_at
@@ -129,7 +150,10 @@ app.get('/products', async (req, res) => {
         // ── Calculate Stats for Dashboard ─────────────────────────
         let totalDrop = 0;
         let dropCount = 0;
+        let totalSpike = 0;
+        let spikeCount = 0;
         let totalCurrentValue = 0;
+        let biggestChange = { amount: 0, percent: 0, name: '', type: 'neutral' };
 
         // Enrich each row with detected store info and calc stats
         const enriched = rows.map(r => {
@@ -138,19 +162,44 @@ app.get('/products', async (req, res) => {
             // Calc stats
             const current = parseFloat(r.last_price || 0);
             const prev = parseFloat(r.prev_price || 0);
-            if (prev > 0 && current < prev) {
-                totalDrop += (prev - current);
-                dropCount++;
-            }
-            totalCurrentValue += current;
+            let changeType = 'neutral';
+            let changeAmount = 0;
+            let changePercent = 0;
 
-            return { ...r, store, storeLogo };
+            if (prev > 0 && current !== prev) {
+                changeAmount = Math.abs(current - prev);
+                changePercent = ((changeAmount / prev) * 100);
+
+                if (current < prev) {
+                    totalDrop += (prev - current);
+                    dropCount++;
+                    changeType = 'drop';
+                } else {
+                    totalSpike += (current - prev);
+                    spikeCount++;
+                    changeType = 'spike';
+                }
+
+                if (changeAmount > biggestChange.amount) {
+                    biggestChange = { amount: changeAmount, percent: changePercent, name: r.name, type: changeType };
+                }
+            }
+
+            totalCurrentValue += current;
+            return { ...r, store, storeLogo, changeType, changeAmount: changeAmount.toFixed(2), changePercent: changePercent.toFixed(1) };
         });
 
         const statsStore = {
             avgPriceDrop: dropCount > 0 ? (totalDrop / dropCount).toFixed(2) : 0,
             totalSavings: totalDrop.toFixed(2),
-            productCount: enriched.length
+            productCount: enriched.length,
+            avgPriceSpike: spikeCount > 0 ? (totalSpike / spikeCount).toFixed(2) : 0,
+            totalSpike: totalSpike.toFixed(2),
+            dropCount,
+            spikeCount,
+            portfolioValue: totalCurrentValue.toFixed(2),
+            biggestChange,
+            netChange: (totalDrop - totalSpike).toFixed(2)
         };
 
         res.json({
@@ -286,29 +335,66 @@ async function scrapeEbayPrice(url) {
  * Uses optional ScraperAPI-style proxy when SCRAPER_API_KEY is set.
  */
 async function scrapeAmazonPrice(url) {
-    try {
-        const asin = getAmazonAsin(url);
-        const hostname = getHostname(url) || 'amazon.com';
+    const asin = getAmazonAsin(url);
+    const hostname = getHostname(url) || 'amazon.com';
+    const preferredDomain = AMAZON_DOMAIN || hostname;
 
-        // Preferred: SerpApi product endpoint (more reliable than HTML scraping)
-        if (SERPAPI_KEY && asin && canUseSerpApi()) {
+    // Helper to extract price from SerpApi response
+    function extractSerpPrice(data, domain) {
+        const priceStr = data?.product_results?.price;
+        const currency = data?.product_results?.currency || '';
+        if (!priceStr) return null;
+        const cleaned = String(priceStr).replace(/[^\d.]/g, '');
+        if (!cleaned) return null;
+        const isInr = domain.endsWith('.in') ||
+            String(priceStr).includes('₹') ||
+            currency.toUpperCase() === 'INR';
+        return { price: parseFloat(cleaned), isInr };
+    }
+
+    if (SERPAPI_KEY && asin && canUseSerpApi()) {
+        // Step 1: Try preferred domain (amazon.in) for direct INR price
+        try {
             trackSerpApiCall();
-            const serpUrl = 'https://serpapi.com/search.json';
-            const params = {
-                api_key: SERPAPI_KEY,
-                engine: 'amazon_product',
-                amazon_domain: hostname,
-                asin
-            };
-            const { data } = await axios.get(serpUrl, { params, timeout: 15000 });
-            const priceStr = data?.product_results?.price;
-            if (priceStr) {
-                const cleaned = String(priceStr).replace(/[^\d.]/g, '');
-                if (cleaned) return parseFloat(cleaned);
+            console.log(`  🔍 Trying ${preferredDomain} for ASIN ${asin}...`);
+            const { data } = await axios.get('https://serpapi.com/search.json', {
+                params: { api_key: SERPAPI_KEY, engine: 'amazon_product', amazon_domain: preferredDomain, asin },
+                timeout: 15000
+            });
+            const result = extractSerpPrice(data, preferredDomain);
+            if (result) {
+                console.log(`  ✅ Found on ${preferredDomain}: ₹${result.price}`);
+                return result;
             }
+        } catch (e) {
+            console.warn(`  ⚠️ ${preferredDomain} lookup failed:`, e.response?.data?.error || e.message);
         }
 
-        // Fallback: HTML scrape (may be blocked without proxy)
+        // Step 2: Fallback to original domain if ASIN not on preferred
+        if (preferredDomain !== hostname && canUseSerpApi()) {
+            try {
+                trackSerpApiCall();
+                console.log(`  🔄 Falling back to ${hostname} for ASIN ${asin}...`);
+                const { data } = await axios.get('https://serpapi.com/search.json', {
+                    params: { api_key: SERPAPI_KEY, engine: 'amazon_product', amazon_domain: hostname, asin },
+                    timeout: 15000
+                });
+                const priceStr = data?.product_results?.price;
+                if (priceStr) {
+                    const cleaned = String(priceStr).replace(/[^\d.]/g, '');
+                    if (cleaned) {
+                        console.log(`  ✅ Found on ${hostname}: ${cleaned} (will convert to INR)`);
+                        return { price: parseFloat(cleaned), isInr: false };
+                    }
+                }
+            } catch (e) {
+                console.error(`  ❌ ${hostname} fallback also failed:`, e.response?.data?.error || e.message);
+            }
+        }
+    }
+
+    // Fallback: HTML scrape
+    try {
         const { data } = await fetchHtml(url);
         const $ = cheerio.load(data);
         const priceText =
@@ -318,7 +404,9 @@ async function scrapeAmazonPrice(url) {
             $('[data-a-color="price"] .a-offscreen').first().text();
         if (!priceText) return null;
         const cleanPrice = priceText.replace(/[^\d.]/g, '');
-        return cleanPrice ? parseFloat(cleanPrice) : null;
+        if (!cleanPrice) return null;
+        const isInr = hostname.endsWith('.in') || priceText.includes('₹');
+        return { price: parseFloat(cleanPrice), isInr };
     } catch (e) {
         console.error("Amazon scrape error for", url, e.message);
         return null;
@@ -349,26 +437,61 @@ async function fetchHtml(targetUrl) {
  */
 async function scrapePriceByUrl(url) {
     const hostname = getHostname(url) || '';
-    let price = null;
+    let result = null;
 
     // Check if the store is likely already in INR (ends with .in)
     const isLocalStore = hostname.endsWith('.in');
 
     if (hostname.includes('ebay')) {
-        price = await scrapeEbayPrice(url);
+        const ebayPrice = await scrapeEbayPrice(url);
+        result = ebayPrice ? { price: ebayPrice, isInr: false } : null;
     } else if (hostname.includes('amazon.')) {
-        price = await scrapeAmazonPrice(url);
+        result = await scrapeAmazonPrice(url);
     } else {
-        price = await scrapeEbayPrice(url);
+        const genericPrice = await scrapeEbayPrice(url);
+        result = genericPrice ? { price: genericPrice, isInr: isLocalStore } : null;
     }
 
-    if (price && !isLocalStore) {
-        price = price * USD_TO_INR; // Convert global USD prices to INR
+    if (!result || !result.price) return null;
+
+    let finalPrice = result.price;
+
+    // Only convert to INR if the price is NOT already in INR
+    const alreadyInr = result.isInr || isLocalStore;
+    if (!alreadyInr) {
+        const rate = await getUsdToInr();
+        finalPrice = finalPrice * rate;
+        console.log(`💱 Converted $${result.price} → ₹${finalPrice.toFixed(2)} (rate: ${rate})`);
+    } else {
+        console.log(`🇮🇳 Price already in INR: ₹${finalPrice}`);
     }
 
-    return price ? parseFloat(price.toFixed(2)) : null;
+    return parseFloat(finalPrice.toFixed(2));
 }
 
+
+// Auto-detect product category from name keywords
+function autoCategorize(productName) {
+    const name = (productName || '').toLowerCase();
+    const rules = [
+        { keywords: ['shoe', 'sneaker', 'boot', 'sandal', 'slipper', 'footwear', 'puma', 'nike', 'adidas', 'jordan', 'crocs', 'reebok'], category: 'Footwear' },
+        { keywords: ['book', 'paperback', 'hardcover', 'novel', 'textbook', 'edition', 'author', 'isbn', 'manga'], category: 'Books' },
+        { keywords: ['phone', 'iphone', 'samsung galaxy s', 'pixel', 'oneplus', 'redmi', 'poco', 'motorola', 'smartphone'], category: 'Smartphones' },
+        { keywords: ['laptop', 'macbook', 'chromebook', 'thinkpad', 'notebook', 'ultrabook'], category: 'Laptops' },
+        { keywords: ['headphone', 'earphone', 'earbud', 'airpod', 'speaker', 'soundbar', 'audio', 'microphone'], category: 'Audio' },
+        { keywords: ['gpu', 'graphics card', 'geforce', 'radeon', 'rtx', 'rx 7', 'console', 'playstation', 'xbox', 'nintendo', 'gaming'], category: 'Gaming' },
+        { keywords: ['watch', 'smartwatch', 'fitbit', 'garmin', 'apple watch'], category: 'Wearables' },
+        { keywords: ['tablet', 'ipad', 'tab s', 'kindle', 'fire hd'], category: 'Tablets' },
+        { keywords: ['shirt', 'pant', 'jacket', 'hoodie', 'dress', 'jeans', 'tshirt', 't-shirt', 'clothing', 'apparel', 'wear'], category: 'Clothing' },
+        { keywords: ['camera', 'lens', 'tripod', 'gopro', 'dslr', 'mirrorless'], category: 'Cameras' },
+        { keywords: ['tv', 'television', 'monitor', 'display', 'screen', 'projector'], category: 'Displays' },
+        { keywords: ['furniture', 'chair', 'desk', 'table', 'sofa', 'mattress', 'bed', 'shelf', 'home'], category: 'Home' },
+    ];
+    for (const rule of rules) {
+        if (rule.keywords.some(kw => name.includes(kw))) return rule.category;
+    }
+    return 'Electronics'; // Default fallback
+}
 // Add a product AND its source link — tied to a specific user
 app.post(['/products', '/api/products'], async (req, res) => {
     const { name, category, image_url, url, user_id, target_price } = req.body;
@@ -387,7 +510,7 @@ app.post(['/products', '/api/products'], async (req, res) => {
 
         // 1. Insert into products (with user_id)
         const productQuery = "INSERT INTO products (name, category, image_url, user_id) VALUES (?, ?, ?, ?)";
-        const [productResult] = await connection.query(productQuery, [name, category || 'Electronics', image_url, user_id || null]);
+        const [productResult] = await connection.query(productQuery, [name, category || autoCategorize(name), image_url, user_id || null]);
         const productId = productResult.insertId;
 
         // 2. Detect website and add to product_sources
@@ -676,12 +799,22 @@ async function searchAmazon(query) {
         const items = data?.organic_results || [];
         console.log(`📦 Amazon results: ${items.length} products found`);
 
+        // Detect if the search domain returns INR prices
+        const searchDomainIsLocal = AMAZON_DOMAIN.endsWith('.in');
+
         return items.slice(0, 20).map((item, idx) => {
             const priceVal = item.extracted_price || (item.price ? parseFloat(item.price.replace(/[^\d.]/g, '')) : 0);
+            // Check if price string contains ₹ or currency is INR
+            const itemIsInr = searchDomainIsLocal ||
+                (item.price && String(item.price).includes('₹')) ||
+                (item.currency && item.currency.toUpperCase() === 'INR');
+            const displayPrice = priceVal > 0
+                ? (itemIsInr ? `₹${priceVal.toLocaleString('en-IN')}` : `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}`)
+                : 'N/A';
             return {
                 id: `amz-${item.asin || idx}`,
                 name: item.title || 'Unknown',
-                price: priceVal > 0 ? `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
+                price: displayPrice,
                 image: item.thumbnail || null,
                 url: item.link || '#',
                 store: 'Amazon',
