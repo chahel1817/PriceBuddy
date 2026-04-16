@@ -2,7 +2,6 @@
 
 **PriceBuddy** is a smart price tracking and comparison platform designed to help users save money by monitoring product prices across popular e-commerce platforms like **Amazon** and **eBay**.
 
-![PriceBuddy Dashboard](https://images.unsplash.com/photo-1556742044-3c52d6e88c62?auto=format&fit=crop&q=80&w=1000)
 
 ## 🚀 Key Features
 
@@ -82,6 +81,3 @@ This script will pick a product in your database, artificially drop its price by
 
 ## 🤝 Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-This project is licensed under the MIT License.
