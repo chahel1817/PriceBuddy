@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
-const CATEGORIES = ['All', 'Smartphones', 'Laptops', 'Audio', 'Electronics', 'Gaming', 'Footwear', 'Home'];
+const CATEGORIES = ['All', 'Smartphones', 'Laptops', 'Audio', 'Electronics', 'Gaming', 'Footwear', 'Books', 'Wearables', 'Clothing', 'Cameras', 'Displays', 'Tablets', 'Home'];
 const HINTS = ['RTX 4090', 'iPhone 15', 'AirPods Pro', 'Samsung Galaxy S24', 'MacBook Pro M3'];
 
 // ── Skeleton Card (Grid) ───────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: product.name,
-                    category: category === 'All' ? (product.category || 'Electronics') : category,
+                    category: category === 'All' ? null : category,
                     image_url: product.image || null,
                     url: product.url,
                     user_id,

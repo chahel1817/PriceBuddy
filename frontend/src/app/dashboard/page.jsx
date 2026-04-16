@@ -3,7 +3,8 @@
 import React from 'react';
 import {
   TrendingDown, Package, TrendingUp,
-  DollarSign, ShoppingCart, ExternalLink, Plus, BarChart3, RefreshCcw, Zap, ShieldCheck, Loader2, Search, Target
+  DollarSign, ShoppingCart, ExternalLink, Plus, BarChart3, RefreshCcw, Zap, ShieldCheck, Loader2, Search, Target,
+  Activity, ArrowDownRight, ArrowUpRight, Flame, Wallet
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -16,25 +17,66 @@ import { useRouter } from 'next/navigation';
 import AddProductModal from "@/components/AddProductModal";
 import OnboardingModal from "@/components/OnboardingModal";
 
-const StatCard = ({ title, value, change, isPositive, icon: Icon }) => (
-  <div className="bg-brand-card border border-brand-border p-6 rounded-2xl hover:border-brand-cyan/30 transition-all group">
-    <div className="flex items-center justify-between mb-4">
-      <span className="text-gray-400 text-sm font-medium">{title}</span>
-      <div className="p-2 bg-brand-bg rounded-xl border border-brand-border group-hover:border-brand-cyan/20 transition-all">
-        <Icon className="text-brand-cyan w-5 h-5" />
+const StatCard = ({ title, value, subtitle, icon: Icon, accentColor = "cyan", glowColor, badge }) => (
+  <div className={cn(
+    "bg-brand-card border border-brand-border p-7 rounded-2xl hover:border-opacity-50 transition-all duration-300 group relative overflow-hidden",
+    accentColor === 'emerald' && "hover:border-emerald-500/30",
+    accentColor === 'rose' && "hover:border-rose-500/30",
+    accentColor === 'cyan' && "hover:border-brand-cyan/30",
+    accentColor === 'violet' && "hover:border-violet-500/30",
+    accentColor === 'amber' && "hover:border-amber-500/30",
+  )}>
+    {/* Top glow line */}
+    <div className={cn(
+      "absolute top-0 left-0 right-0 h-[2px]",
+      accentColor === 'emerald' && "bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent",
+      accentColor === 'rose' && "bg-gradient-to-r from-transparent via-rose-500/50 to-transparent",
+      accentColor === 'cyan' && "bg-gradient-to-r from-transparent via-brand-cyan/50 to-transparent",
+      accentColor === 'violet' && "bg-gradient-to-r from-transparent via-violet-500/50 to-transparent",
+      accentColor === 'amber' && "bg-gradient-to-r from-transparent via-amber-500/50 to-transparent",
+    )} />
+
+    <div className="flex items-center justify-between mb-5">
+      <span className="text-gray-400 text-[13px] font-semibold tracking-wide">{title}</span>
+      <div className={cn(
+        "p-2.5 rounded-xl border transition-all",
+        accentColor === 'emerald' && "bg-emerald-500/10 border-emerald-500/20 group-hover:border-emerald-500/40",
+        accentColor === 'rose' && "bg-rose-500/10 border-rose-500/20 group-hover:border-rose-500/40",
+        accentColor === 'cyan' && "bg-brand-cyan/10 border-brand-cyan/20 group-hover:border-brand-cyan/40",
+        accentColor === 'violet' && "bg-violet-500/10 border-violet-500/20 group-hover:border-violet-500/40",
+        accentColor === 'amber' && "bg-amber-500/10 border-amber-500/20 group-hover:border-amber-500/40",
+      )}>
+        <Icon className={cn(
+          "w-5 h-5",
+          accentColor === 'emerald' && "text-emerald-400",
+          accentColor === 'rose' && "text-rose-400",
+          accentColor === 'cyan' && "text-brand-cyan",
+          accentColor === 'violet' && "text-violet-400",
+          accentColor === 'amber' && "text-amber-400",
+        )} />
       </div>
     </div>
-    <div className="flex flex-col">
-      <span className="text-3xl font-bold text-white tracking-tight">{value}</span>
-      {change !== null && (
-        <div className={`flex items-center gap-1 text-sm mt-2 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-          <span className="font-semibold">{change}</span>
-          <span className="text-gray-500 font-normal ml-1">vs last month</span>
-        </div>
-      )}
-      {change === null && (
-        <p className="text-[10px] text-gray-700 mt-2 font-black uppercase tracking-widest">{isPositive ? 'Market Active' : 'Analyzing Trends'}</p>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-end gap-3 flex-wrap">
+        <span className={cn(
+          "text-[2rem] font-extrabold tracking-tight leading-none",
+          accentColor === 'emerald' && "text-emerald-400",
+          accentColor === 'rose' && "text-rose-400",
+          accentColor === 'cyan' && "text-white",
+          accentColor === 'violet' && "text-violet-400",
+          accentColor === 'amber' && "text-amber-400",
+        )}>{value}</span>
+        {badge && (
+          <span className={cn(
+            "text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border mb-1",
+            badge.type === 'drop' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+            badge.type === 'spike' && "bg-rose-500/10 text-rose-400 border-rose-500/20",
+            badge.type === 'neutral' && "bg-gray-500/10 text-gray-400 border-gray-500/20",
+          )}>{badge.label}</span>
+        )}
+      </div>
+      {subtitle && (
+        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider leading-relaxed">{subtitle}</p>
       )}
     </div>
   </div>
@@ -56,7 +98,11 @@ export default function Dashboard() {
   const [successData, setSuccessData] = React.useState(null);
   const [lastUpdated, setLastUpdated] = React.useState(null);
   const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
-  const [stats, setStats] = React.useState({ avgPriceDrop: 0, totalSavings: 0, productCount: 0 });
+  const [stats, setStats] = React.useState({
+    avgPriceDrop: 0, totalSavings: 0, productCount: 0,
+    avgPriceSpike: 0, totalSpike: 0, dropCount: 0, spikeCount: 0,
+    portfolioValue: 0, biggestChange: { amount: 0, percent: 0, name: '', type: 'neutral' }, netChange: 0
+  });
   const router = useRouter();
 
   // ── Data Processing for Charts ────────────────────────
@@ -159,8 +205,13 @@ export default function Dashboard() {
             storeLogo: p.storeLogo,
             target_price: p.target_price,
             price_val: current,
+            prev_val: prev,
             scraped_at_val: p.scraped_at ? new Date(p.scraped_at).getTime() : 0,
-            history: p.history || []
+            history: p.history || [],
+            changeType: p.changeType || 'neutral',
+            changeAmount: p.changeAmount || '0',
+            changePercent: p.changePercent || '0',
+            last_price: p.last_price
           };
         });
         setProductsList(mapped);
@@ -220,6 +271,11 @@ export default function Dashboard() {
       }
     }
   }, [fetchProducts]);
+
+  // Determine net direction for big stat
+  const netChange = parseFloat(stats.netChange || 0);
+  const isNetPositive = netChange > 0; // positive net = more drops than spikes = good
+  const biggestChange = stats.biggestChange || { amount: 0, percent: 0, name: '', type: 'neutral' };
 
   return (
     <div className="flex flex-col flex-1">
@@ -301,12 +357,107 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <StatCard title="Tracked Products" value={stats.productCount.toLocaleString()} change={null} isPositive={true} icon={Package} />
-          <StatCard title="Avg. Price Drop" value={`₹${parseFloat(stats.avgPriceDrop || 0).toLocaleString('en-IN')}`} change={null} isPositive={true} icon={TrendingDown} />
-          <StatCard title="Total Savings" value={`₹${parseFloat(stats.totalSavings || 0).toLocaleString('en-IN')}`} change={null} isPositive={true} icon={DollarSign} />
+        {/* ─── Enhanced Stats Grid — Row 1 (3 cards) ─────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <StatCard
+            title="Tracked Products"
+            value={stats.productCount.toLocaleString()}
+            subtitle="Market Active"
+            icon={Package}
+            accentColor="cyan"
+          />
+          <StatCard
+            title="Avg. Price Drop"
+            value={`₹${parseFloat(stats.avgPriceDrop || 0).toLocaleString('en-IN')}`}
+            subtitle={`${stats.dropCount || 0} product${stats.dropCount !== 1 ? 's' : ''} dropped`}
+            icon={ArrowDownRight}
+            accentColor="emerald"
+            badge={stats.dropCount > 0 ? { label: `${stats.dropCount} drops`, type: 'drop' } : null}
+          />
+          <StatCard
+            title="Avg. Price Spike"
+            value={`₹${parseFloat(stats.avgPriceSpike || 0).toLocaleString('en-IN')}`}
+            subtitle={`${stats.spikeCount || 0} product${stats.spikeCount !== 1 ? 's' : ''} spiked`}
+            icon={ArrowUpRight}
+            accentColor="rose"
+            badge={stats.spikeCount > 0 ? { label: `${stats.spikeCount} spikes`, type: 'spike' } : null}
+          />
         </div>
+
+        {/* ─── Stats Grid — Row 2 (2 wide cards) ─────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <StatCard
+            title="Portfolio Value"
+            value={`₹${parseFloat(stats.portfolioValue || 0).toLocaleString('en-IN')}`}
+            subtitle="Combined value of all tracked products"
+            icon={Wallet}
+            accentColor="violet"
+          />
+          <StatCard
+            title="Net Change"
+            value={`${netChange < 0 ? '+' : netChange > 0 ? '-' : ''}₹${Math.abs(netChange).toLocaleString('en-IN')}`}
+            subtitle={isNetPositive ? "Overall prices dropped — you're saving!" : netChange < 0 ? "Overall prices went up since last change" : "No price movement detected yet"}
+            icon={isNetPositive ? TrendingDown : netChange < 0 ? TrendingUp : Activity}
+            accentColor={isNetPositive ? 'emerald' : netChange < 0 ? 'rose' : 'cyan'}
+            badge={netChange !== 0 ? { label: isNetPositive ? 'saving' : 'spending more', type: isNetPositive ? 'drop' : 'spike' } : null}
+          />
+        </div>
+
+        {/* ─── Biggest Change Alert Banner ─────────────────────── */}
+        {biggestChange.amount > 0 && (
+          <div className={cn(
+            "rounded-2xl border p-6 flex items-center gap-6 transition-all",
+            biggestChange.type === 'drop'
+              ? "bg-emerald-500/5 border-emerald-500/20"
+              : "bg-rose-500/5 border-rose-500/20"
+          )}>
+            <div className={cn(
+              "p-4 rounded-2xl flex-shrink-0",
+              biggestChange.type === 'drop'
+                ? "bg-emerald-500/10 border border-emerald-500/20"
+                : "bg-rose-500/10 border border-rose-500/20"
+            )}>
+              {biggestChange.type === 'drop'
+                ? <TrendingDown className="w-7 h-7 text-emerald-400" />
+                : <TrendingUp className="w-7 h-7 text-rose-400" />
+              }
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-2">
+                <span className={cn(
+                  "text-sm font-black uppercase tracking-wider",
+                  biggestChange.type === 'drop' ? "text-emerald-400" : "text-rose-400"
+                )}>
+                  {biggestChange.type === 'drop' ? '📉 Biggest Drop' : '📈 Biggest Spike'}
+                </span>
+                <span className={cn(
+                  "text-[10px] font-black px-2.5 py-1 rounded-full border",
+                  biggestChange.type === 'drop'
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                )}>
+                  {parseFloat(biggestChange.percent).toFixed(1)}% change
+                </span>
+              </div>
+              <p className="text-gray-400 text-xs font-semibold leading-relaxed">
+                <span className="text-white font-bold">{biggestChange.name}</span>
+              </p>
+              <p className="text-gray-500 text-[11px] mt-1 font-medium">
+                {biggestChange.type === 'drop' ? 'Dropped' : 'Increased'} by{' '}
+                <span className={cn("font-black", biggestChange.type === 'drop' ? 'text-emerald-400' : 'text-rose-400')}>
+                  ₹{parseFloat(biggestChange.amount).toLocaleString('en-IN')}
+                </span>
+                {' since last recorded change'}
+              </p>
+            </div>
+            <div className={cn(
+              "text-3xl font-black tracking-tight flex-shrink-0 hidden sm:block",
+              biggestChange.type === 'drop' ? "text-emerald-400" : "text-rose-400"
+            )}>
+              {biggestChange.type === 'drop' ? '-' : '+'}₹{parseFloat(biggestChange.amount).toLocaleString('en-IN')}
+            </div>
+          </div>
+        )}
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -388,7 +539,10 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <h3 className="font-black text-white uppercase tracking-wider text-sm">Category Trends</h3>
-                  <span className="text-[10px] bg-gray-500/10 text-gray-500 px-2 py-0.5 rounded-full border border-gray-700 font-black">No Data</span>
+                  {categoryData.length > 0
+                    ? <span className="text-[10px] bg-violet-500/10 text-violet-400 px-2 py-0.5 rounded-full border border-violet-500/20 font-black">Live</span>
+                    : <span className="text-[10px] bg-gray-500/10 text-gray-500 px-2 py-0.5 rounded-full border border-gray-700 font-black">No Data</span>
+                  }
                 </div>
                 <p className="text-gray-600 text-[11px] font-medium">Aggregated price trend across all tracked categories</p>
               </div>
@@ -492,6 +646,10 @@ export default function Dashboard() {
                     .map((p, idx) => {
                       const isGoodDeal = p.target_price && p.price_val <= p.target_price;
                       const isExpensive = p.target_price && p.price_val > p.target_price;
+                      const isDrop = p.trend === 'down';
+                      const isSpike = p.trend === 'up';
+                      const changeAmt = Math.abs(p.price_val - p.prev_val);
+                      const changePct = p.prev_val > 0 ? ((changeAmt / p.prev_val) * 100).toFixed(1) : 0;
 
                       return (
                         <tr key={p.id} className="hover:bg-white/5 border-b border-white/[0.03] transition-all duration-200 group h-24">
@@ -521,17 +679,27 @@ export default function Dashboard() {
                             <span className="px-2.5 py-1 bg-brand-card border border-brand-border rounded-lg text-[8px] font-black text-gray-500 uppercase tracking-widest">{p.category}</span>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <div className="flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-1">
                               <span className={cn(
                                 "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5 border shadow-sm",
-                                p.trend === 'down'
-                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                                  : p.trend === 'up'
-                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                isDrop
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                  : isSpike
+                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
                                     : "bg-gray-500/10 text-gray-500 border-gray-500/20"
                               )}>
-                                {p.trend === 'down' ? 'DOWN' : p.trend === 'up' ? 'UP' : 'STEADY'}
+                                {isDrop && <ArrowDownRight className="w-3 h-3" />}
+                                {isSpike && <ArrowUpRight className="w-3 h-3" />}
+                                {isDrop ? 'DROP' : isSpike ? 'SPIKE' : 'STEADY'}
                               </span>
+                              {(isDrop || isSpike) && changePct > 0 && (
+                                <span className={cn(
+                                  "text-[8px] font-black",
+                                  isDrop ? "text-emerald-500/70" : "text-rose-500/70"
+                                )}>
+                                  {isDrop ? '-' : '+'}{changePct}%
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -543,6 +711,15 @@ export default function Dashboard() {
                               )}>
                                 {p.price}
                               </span>
+                              {(isDrop || isSpike) && changeAmt > 0 && (
+                                <span className={cn(
+                                  "text-[9px] font-black mt-0.5 flex items-center gap-1",
+                                  isDrop ? "text-emerald-400" : "text-rose-400"
+                                )}>
+                                  {isDrop ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
+                                  {isDrop ? '-' : '+'}₹{changeAmt.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </span>
+                              )}
                               <div className="text-[9px] font-black mt-0.5 uppercase tracking-widest text-gray-700">
                                 LAST AT: {p.updated}
                               </div>
