@@ -766,7 +766,7 @@ async function searchEbay(query) {
         });
     } catch (e) {
         console.error('eBay Finding API critical failure:', e.response?.data || e.message);
-        throw new Error('All eBay API attempts failed. Please verify your App ID and Cert ID are valid for Production (not Sandbox) and are active.');
+        throw new Error(`All eBay API attempts failed. Reason: ${e.response?.data?.errorMessage?.[0]?.error?.[0]?.message?.[0] || e.message}`);
     }
 }
 
