@@ -680,7 +680,8 @@ async function getEbayOAuthToken() {
             headers: {
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/x-www-form-urlencoded'
-            }
+            },
+            timeout: 20000
         });
         ebayAccessToken = data.access_token;
         ebayTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
@@ -693,80 +694,76 @@ async function getEbayOAuthToken() {
 
 async function searchEbay(query) {
     const appId = process.env.EBAY_APP_ID;
-    if (!appId) throw new Error('EBAY_APP_ID not set in .env');
+    if (!appId) return [];
 
-    try {
-        // Attempt 1: Modern Browse API (OAuth)
-        if (process.env.EBAY_CERT_ID) {
+    // Define the two search tasks
+    const browseTask = async () => {
+        if (!process.env.EBAY_CERT_ID) return [];
+        try {
             const token = await getEbayOAuthToken();
             const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(query)}&limit=50`;
             const { data } = await axios.get(url, {
                 headers: { 'Authorization': `Bearer ${token}` },
-                timeout: 10000
+                timeout: 15000
             });
-
-            const items = data.itemSummaries || [];
-            if (items.length > 0) {
-                return items.slice(0, 20).map((item, i) => {
-                    const priceVal = item.price?.value ? parseFloat(item.price.value) : 0;
-                    return {
-                        id: `ebay-br-${item.itemId}`,
-                        name: item.title?.substring(0, 100) || 'Unknown',
-                        price: priceVal > 0 ? `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
-                        image: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null,
-                        url: item.itemWebUrl || '#',
-                        store: 'eBay',
-                        storeLogo: EBAY_LOGO
-                    };
-                });
-            }
-        }
-    } catch (error) {
-        console.warn('eBay Browse API failed:', error.response?.data || error.message, 'Falling back to Finding API...');
-    }
-
-
-    // Attempt 2: Fallback to Legacy Finding API (only requires App ID)
-    try {
-        const params = new URLSearchParams({
-            'OPERATION-NAME': 'findItemsByKeywords',
-            'SERVICE-VERSION': '1.0.0',
-            'SECURITY-APPNAME': appId,
-            'RESPONSE-DATA-FORMAT': 'JSON',
-            'REST-PAYLOAD': '',
-            'keywords': query,
-            'paginationInput.entriesPerPage': '50',
-            'sortOrder': 'BestMatch',
-            'itemFilter(0).name': 'ListingType',
-            'itemFilter(0).value': 'FixedPrice',
-        });
-
-        const url = `https://svcs.ebay.com/services/search/FindingService/v1?${params}`;
-        const { data } = await axios.get(url, { timeout: 10000 });
-
-        // Extract the explicit human-readable error from eBay's nested array structure
-        if (data?.errorMessage) {
-            const ebayErrs = data.errorMessage[0]?.error?.map(e => e.message?.[0]).filter(Boolean).join(', ') || 'Unknown API Error';
-            throw new Error(`eBay API Error: ${ebayErrs}`);
-        }
-
-        const items = data?.findItemsByKeywordsResponse?.[0]?.searchResult?.[0]?.item || [];
-
-        return items.slice(0, 20).map((item, i) => {
-            const priceVal = item.sellingStatus?.[0]?.currentPrice?.[0]?.['__value__'] ? parseFloat(item.sellingStatus[0].currentPrice[0]['__value__']) : 0;
-            return {
-                id: `ebay-fn-${i}`,
-                name: item.title?.[0]?.substring(0, 100) || 'Unknown',
-                price: priceVal > 0 ? `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
-                image: item.galleryURL?.[0] || null,
-                url: item.viewItemURL?.[0] || '#',
+            return (data.itemSummaries || []).slice(0, 20).map(item => ({
+                id: `ebay-br-${item.itemId}`,
+                name: item.title?.substring(0, 100) || 'Unknown',
+                price: item.price?.value ? `₹${(parseFloat(item.price.value) * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
+                image: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null,
+                url: item.itemWebUrl || '#',
                 store: 'eBay',
                 storeLogo: EBAY_LOGO
-            };
-        });
+            }));
+        } catch (e) {
+            console.warn('eBay Browse API failed:', e.message);
+            return [];
+        }
+    };
+
+    const findingTask = async () => {
+        try {
+            const params = new URLSearchParams({
+                'OPERATION-NAME': 'findItemsByKeywords',
+                'SERVICE-VERSION': '1.0.0',
+                'SECURITY-APPNAME': appId,
+                'RESPONSE-DATA-FORMAT': 'JSON',
+                'REST-PAYLOAD': '',
+                'keywords': query,
+                'paginationInput.entriesPerPage': '50',
+                'sortOrder': 'BestMatch',
+            });
+            const url = `https://svcs.ebay.com/services/search/FindingService/v1?${params}`;
+            const { data } = await axios.get(url, { timeout: 15000 });
+            const items = data?.findItemsByKeywordsResponse?.[0]?.searchResult?.[0]?.item || [];
+            return items.slice(0, 20).map((item, i) => {
+                const priceVal = item.sellingStatus?.[0]?.currentPrice?.[0]?.['__value__'] ? parseFloat(item.sellingStatus[0].currentPrice[0]['__value__']) : 0;
+                return {
+                    id: `ebay-fn-${i}-${Date.now()}`,
+                    name: item.title?.[0]?.substring(0, 100) || 'Unknown',
+                    price: priceVal > 0 ? `₹${(priceVal * USD_TO_INR).toLocaleString('en-IN')}` : 'N/A',
+                    image: item.galleryURL?.[0] || null,
+                    url: item.viewItemURL?.[0] || '#',
+                    store: 'eBay',
+                    storeLogo: EBAY_LOGO
+                };
+            });
+        } catch (e) {
+            console.warn('eBay Finding API failed:', e.message);
+            return [];
+        }
+    };
+
+    // Run BOTH in parallel and merge results
+    try {
+        const results = await Promise.all([browseTask(), findingTask()]);
+        // Flatten and remove duplicates by URL
+        const combined = [...results[0], ...results[1]];
+        const unique = Array.from(new Map(combined.map(item => [item.url, item])).values());
+        return unique.slice(0, 30);
     } catch (e) {
-        console.error('eBay Finding API critical failure:', e.response?.data || e.message);
-        throw new Error(`All eBay API attempts failed. Reason: ${e.response?.data?.errorMessage?.[0]?.error?.[0]?.message?.[0] || e.message}`);
+        console.error('eBay Search Critical Failure:', e.message);
+        return []; // Never throw, just return empty so Amazon results still show up
     }
 }
 
