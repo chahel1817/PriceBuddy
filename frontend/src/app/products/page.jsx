@@ -29,7 +29,7 @@ export default function ProductsPage() {
     const [loadingNotif, setLoadingNotif] = useState(true);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = sessionStorage.getItem('user');
         const user = storedUser ? JSON.parse(storedUser) : null;
 
         if (user?.id) {
@@ -50,7 +50,7 @@ export default function ProductsPage() {
     const fetchProducts = async () => {
         try {
             setLoading(true);
-            const storedUser = localStorage.getItem('user');
+            const storedUser = sessionStorage.getItem('user');
             if (storedUser) {
                 const parsed = JSON.parse(storedUser);
                 setUserEmail(parsed.email || "your email");
@@ -117,7 +117,7 @@ export default function ProductsPage() {
         if (!productToDelete) return;
         setIsDeleting(true);
         try {
-            const user = JSON.parse(localStorage.getItem('user'));
+            const user = JSON.parse(sessionStorage.getItem('user'));
             const userId = user?.id;
             const res = await fetch(`${API_BASE_URL}/products/${productToDelete.id}?user_id=${userId}`, {
                 method: 'DELETE',
@@ -142,7 +142,7 @@ export default function ProductsPage() {
         setIsNotified(true);
         setShowNotifyModal(false);
 
-        const storedUser = localStorage.getItem('user');
+        const storedUser = sessionStorage.getItem('user');
         const user = storedUser ? JSON.parse(storedUser) : null;
 
         if (user?.id) {
@@ -153,9 +153,9 @@ export default function ProductsPage() {
                     body: JSON.stringify({ active: true })
                 });
 
-                // Update local storage so it persists across other pages too
+                // Update session storage so it stays synced across pages in this session.
                 user.notifications_active = 1;
-                localStorage.setItem('user', JSON.stringify(user));
+                sessionStorage.setItem('user', JSON.stringify(user));
             } catch (err) {
                 console.error('Failed to persist notification status:', err);
             }

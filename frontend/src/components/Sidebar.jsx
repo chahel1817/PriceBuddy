@@ -23,12 +23,12 @@ export default function Sidebar() {
     const [user, setUser] = React.useState(null);
 
     React.useEffect(() => {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = sessionStorage.getItem('user');
         if (storedUser) setUser(JSON.parse(storedUser));
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
         router.push('/');
     };
 
@@ -74,8 +74,16 @@ export default function Sidebar() {
 
             {/* Bottom Actions */}
             <div className="p-4 border-t border-brand-border space-y-1">
-                <Link href="/settings" className="w-full flex items-center gap-3 px-4 py-3 text-gray-400 hover:bg-white/5 hover:text-white rounded-xl transition-all text-sm font-medium group">
-                    <Settings className="w-5 h-5 text-gray-500 group-hover:text-white" />
+                <Link
+                    href="/settings"
+                    className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium group",
+                        pathname === "/settings"
+                            ? "bg-brand-cyan/10 text-brand-cyan"
+                            : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    )}
+                >
+                    <Settings className={cn("w-5 h-5 transition-colors", pathname === "/settings" ? "text-brand-cyan" : "text-gray-500 group-hover:text-white")} />
                     <span>Settings</span>
                 </Link>
                 <button

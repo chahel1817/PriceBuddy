@@ -15,7 +15,7 @@ export default function ClientWrapper({ children }) {
     const isPublicPage = isAuthPage || isLandingPage;
 
     useEffect(() => {
-        const user = localStorage.getItem('user');
+        const user = sessionStorage.getItem('user');
         const loggedIn = !!user;
         setIsAuthenticated(loggedIn);
 

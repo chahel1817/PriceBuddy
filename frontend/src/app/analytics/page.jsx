@@ -14,7 +14,7 @@ export default function AnalyticsPage() {
     React.useEffect(() => {
         const checkData = async () => {
             try {
-                const user = JSON.parse(localStorage.getItem('user'));
+                const user = JSON.parse(sessionStorage.getItem('user'));
                 if (!user?.id) return;
 
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/products?user_id=${user.id}`);

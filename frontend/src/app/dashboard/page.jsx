@@ -162,7 +162,7 @@ export default function Dashboard() {
   const fetchProducts = React.useCallback(async () => {
     try {
       setLoading(true);
-      const user = JSON.parse(localStorage.getItem('user'));
+      const user = JSON.parse(sessionStorage.getItem('user'));
       const userId = user?.id;
 
       if (!userId) {
@@ -230,7 +230,7 @@ export default function Dashboard() {
 
     setIsUpdating(prev => ({ ...prev, [productId]: true }));
     try {
-      const storedUser = localStorage.getItem('user');
+      const storedUser = sessionStorage.getItem('user');
       const user = storedUser ? JSON.parse(storedUser) : null;
 
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";

@@ -13,7 +13,7 @@ export default function ComparisonPage() {
     const fetchUserProducts = React.useCallback(async () => {
         try {
             setLoading(true);
-            const user = JSON.parse(localStorage.getItem('user'));
+            const user = JSON.parse(sessionStorage.getItem('user'));
             const userId = user?.id;
 
             if (!userId) {

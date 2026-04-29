@@ -189,7 +189,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
     const handleTrack = async (product, target_price) => {
         setTrackingId(product.id);
         try {
-            const storedUser = localStorage.getItem('user');
+            const storedUser = sessionStorage.getItem('user');
             const user_id = storedUser ? JSON.parse(storedUser)?.id : null;
 
             const res = await fetch(`${API_BASE_URL}/products`, {

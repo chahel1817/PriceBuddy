@@ -50,8 +50,8 @@ export default function LoginPage() {
 
             if (data.success) {
                 setSuccess(true);
-                // Save basic session (you'd normally use JWT/Cookies)
-                localStorage.setItem('user', JSON.stringify(data.user));
+                // Save session for the current browser tab session only.
+                sessionStorage.setItem('user', JSON.stringify(data.user));
                 setTimeout(() => {
                     router.push('/dashboard');
                 }, 800);

@@ -29,7 +29,7 @@ export default function ProductDetailPage({ params }) {
     React.useEffect(() => {
         const fetchDetail = async () => {
             try {
-                const storedUser = localStorage.getItem('user');
+                const storedUser = sessionStorage.getItem('user');
                 if (storedUser) {
                     const parsed = JSON.parse(storedUser);
                     setUserEmail(parsed.email || "your email");
