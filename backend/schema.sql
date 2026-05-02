@@ -51,3 +51,33 @@ CREATE TABLE IF NOT EXISTS price_history (
     scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_source_id) REFERENCES product_sources(id) ON DELETE CASCADE
 );
+
+-- Alert rules for target-price notifications
+CREATE TABLE IF NOT EXISTS alerts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    target_price DECIMAL(10, 2) NOT NULL,
+    status ENUM('ACTIVE', 'TRIGGERED', 'DISABLED') DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- Notification records emitted when alerts are triggered
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    alert_id INT NOT NULL,
+    message TEXT,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (alert_id) REFERENCES alerts(id) ON DELETE CASCADE
+);
+
+-- Compatibility views for common manual query names.
+-- Use backticks for the hyphenated view: SELECT * FROM `product-sources`;
+CREATE OR REPLACE VIEW `product-sources` AS
+SELECT * FROM product_sources;
+
+-- Typo-compatible alias: SELECT * FROM notifcaitons;
+CREATE OR REPLACE VIEW notifcaitons AS
+SELECT * FROM notifications;
