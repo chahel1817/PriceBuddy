@@ -171,7 +171,7 @@ export default function ProductDetailPage({ params }) {
         <div className="flex flex-col flex-1 bg-brand-bg min-h-screen">
             <Navbar />
 
-            <main className="p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
+            <main className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto w-full overflow-x-hidden">
                 {/* Navigation Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <button
@@ -192,9 +192,9 @@ export default function ProductDetailPage({ params }) {
                     {/* Left Column */}
                     <div className="lg:col-span-8 space-y-8">
                         {/* Hero Card */}
-                        <div className="bg-[#111827] border border-brand-border rounded-[3rem] p-8 md:p-12 relative overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-                            <div className="flex flex-col md:flex-row gap-12 md:items-center relative z-10">
-                                <div className="w-full md:w-64 aspect-square bg-white rounded-[2.5rem] p-8 shadow-2xl border border-brand-border flex items-center justify-center transform hover:scale-105 transition-transform duration-700 relative group/img">
+                        <div className="bg-[#111827] border border-brand-border rounded-[2rem] md:rounded-[3rem] p-5 sm:p-8 md:p-12 relative overflow-hidden group shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                            <div className="flex flex-col md:flex-row gap-6 md:gap-12 md:items-center relative z-10">
+                                <div className="w-full max-w-xs mx-auto md:mx-0 md:w-64 aspect-square bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 shadow-2xl border border-brand-border flex items-center justify-center transform hover:scale-105 transition-transform duration-700 relative group/img">
                                     <div className="absolute inset-4 bg-gradient-to-tr from-brand-cyan/5 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
                                     {product.image_url ? (
                                         <img src={product.image_url} alt={product.name} className="w-full h-full object-contain drop-shadow-2xl" />
@@ -214,8 +214,8 @@ export default function ProductDetailPage({ params }) {
                                             <ShieldCheck className="w-4 h-4" /> Trusted Asset
                                         </span>
                                     </div>
-                                    <h1 className="text-3xl md:text-4xl font-black text-white leading-tight tracking-tighter uppercase italic drop-shadow-sm line-clamp-3">{product.name}</h1>
-                                    <div className="flex items-center gap-6 text-gray-500">
+                                    <h1 className="text-2xl md:text-4xl font-black text-white leading-tight tracking-tighter uppercase italic drop-shadow-sm line-clamp-3">{product.name}</h1>
+                                    <div className="flex flex-wrap items-center gap-3 md:gap-6 text-gray-500">
                                         <div className="flex items-center gap-2 px-3 py-1 bg-brand-bg/50 rounded-lg border border-brand-border/50">
                                             <Globe className="w-4 h-4 text-brand-cyan" />
                                             <span className="text-[10px] font-black uppercase tracking-[0.15em]">{product.store || 'Marketplace'}</span>
@@ -231,26 +231,26 @@ export default function ProductDetailPage({ params }) {
 
                         {/* Marketplace Banner */}
                         <div className="space-y-6">
-                            <div className="flex items-center justify-between px-2">
+                            <div className="flex flex-col gap-2 px-2 sm:flex-row sm:items-center sm:justify-between">
                                 <h2 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
                                     <TrendingDown className="w-5 h-5 text-brand-cyan" /> Market Deal
                                 </h2>
                                 <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Direct Store Access</span>
                             </div>
-                            <div className="bg-[#111827] border border-brand-border p-8 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between group hover:border-brand-cyan/20 transition-all shadow-xl gap-8">
-                                <div className="flex items-center gap-6">
+                            <div className="bg-[#111827] border border-brand-border p-5 sm:p-8 rounded-[2rem] md:rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between group hover:border-brand-cyan/20 transition-all shadow-xl gap-6 md:gap-8">
+                                <div className="flex w-full min-w-0 items-center gap-4 sm:gap-6 md:w-auto">
                                     <div className="w-16 h-16 bg-white rounded-2xl p-3 border border-brand-border shadow-2xl flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
                                         <img src={product.storeLogo || "https://upload.wikimedia.org/wikipedia/commons/1/1b/EBay_logo.svg"} alt="Store" className="w-full h-full object-contain" />
                                     </div>
                                     <div>
-                                        <h4 className="text-xl font-black text-white uppercase tracking-tight">{product.store || 'Store'}</h4>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <h4 className="text-lg sm:text-xl font-black text-white uppercase tracking-tight">{product.store || 'Store'}</h4>
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
                                             <span className="px-2 py-0.5 bg-emerald-500 text-brand-bg rounded text-[8px] font-black uppercase tracking-widest">Active Deal</span>
                                             <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Fast Shipping Available</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-col md:flex-row items-center gap-8 w-full md:w-auto">
+                                <div className="flex flex-col md:flex-row items-center gap-5 md:gap-8 w-full md:w-auto">
                                     <div className="flex flex-col md:items-end text-center md:text-right">
                                         <span className="text-3xl font-black text-brand-cyan drop-shadow-[0_0_15px_rgba(0,229,255,0.2)]">₹{product.last_price ? parseFloat(product.last_price).toLocaleString('en-IN') : "—"}</span>
                                         <div className="flex items-center gap-2 mt-1 md:justify-end">
@@ -275,7 +275,7 @@ export default function ProductDetailPage({ params }) {
 
                     {/* Right Column */}
                     <div className="lg:col-span-4 space-y-6">
-                        <div className="bg-brand-card border border-brand-border rounded-3xl p-8 space-y-6">
+                        <div className="bg-brand-card border border-brand-border rounded-3xl p-5 sm:p-8 space-y-6">
                             <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Intelligence Report</h4>
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
@@ -289,7 +289,7 @@ export default function ProductDetailPage({ params }) {
                             </div>
                         </div>
 
-                        <div className="bg-[#111827] border border-brand-cyan/20 rounded-[2.5rem] p-10 space-y-8 relative overflow-hidden group shadow-[0_0_50px_rgba(0,229,255,0.05)]">
+                        <div className="bg-[#111827] border border-brand-cyan/20 rounded-[2rem] md:rounded-[2.5rem] p-5 sm:p-8 md:p-10 space-y-8 relative overflow-hidden group shadow-[0_0_50px_rgba(0,229,255,0.05)]">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                 <Bell className="w-24 h-24 text-brand-cyan -rotate-12" />
                             </div>
@@ -332,10 +332,10 @@ export default function ProductDetailPage({ params }) {
                     </div>
                     {/* Full Width Chart Card */}
                     <div className="lg:col-span-12">
-                        <div className="bg-brand-card border border-brand-border rounded-[3rem] pt-8 md:pt-12 pb-12 space-y-8 relative overflow-hidden flex flex-col">
-                            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-8 md:px-12">
+                        <div className="bg-brand-card border border-brand-border rounded-[2rem] md:rounded-[3rem] pt-6 md:pt-12 pb-8 md:pb-12 space-y-6 md:space-y-8 relative overflow-hidden flex flex-col">
+                            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-5 sm:px-8 md:px-12">
                                 <div className="space-y-1">
-                                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic flex items-center gap-3">
+                                    <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tighter italic flex items-center gap-3">
                                         Price Analytics <Activity className="w-5 h-5 text-brand-cyan" />
                                     </h2>
                                     <p className="text-gray-500 text-xs font-medium uppercase tracking-widest">Historical Asset Performance</p>
@@ -360,9 +360,9 @@ export default function ProductDetailPage({ params }) {
                             </div>
 
                             {priceHistory.length > 0 ? (
-                                <div className="h-[400px] w-full relative z-10">
+                                <div className="h-[300px] sm:h-[400px] w-full relative z-10 overflow-x-auto">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={priceHistory} margin={{ top: 60, right: 40, left: 10, bottom: 30 }}>
+                                        <AreaChart data={priceHistory} margin={{ top: 40, right: 16, left: 0, bottom: 24 }}>
                                             <defs>
                                                 <linearGradient id="detailPrice" x1="0" y1="0" x2="0" y2="1">
                                                     <stop offset="5%" stopColor="#00E5FF" stopOpacity={0.6} />
@@ -399,7 +399,7 @@ export default function ProductDetailPage({ params }) {
                                                 tickLine={false}
                                                 tick={{ fill: "#64748b", fontSize: 11, fontWeight: 800 }}
                                                 domain={[Math.floor(minPrice - 5), Math.ceil(maxPrice + 5)]}
-                                                width={60}
+                                                width={48}
                                                 allowDecimals={false}
                                                 tickCount={6}
                                             />
@@ -430,7 +430,7 @@ export default function ProductDetailPage({ params }) {
                                     </ResponsiveContainer>
                                 </div>
                             ) : (
-                                <div className="mx-8 md:mx-12 h-[250px] flex items-center justify-center border-2 border-dashed border-brand-border rounded-3xl">
+                                <div className="mx-5 sm:mx-8 md:mx-12 h-[220px] sm:h-[250px] flex items-center justify-center border-2 border-dashed border-brand-border rounded-3xl">
                                     <p className="text-[12px] font-black text-gray-500 uppercase tracking-widest">Awaiting First Price Entry</p>
                                 </div>
                             )}

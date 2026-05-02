@@ -36,9 +36,9 @@ export default function ClientWrapper({ children }) {
     if (loading) return null; // Or a loader
 
     return (
-        <div className="flex bg-brand-bg min-h-screen">
+        <div className="flex bg-brand-bg min-h-screen overflow-x-hidden">
             {!isPublicPage && <Sidebar />}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex min-w-0 flex-col pb-20 md:pb-0">
                 {children}
             </div>
         </div>

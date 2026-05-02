@@ -98,6 +98,8 @@ export default function Dashboard() {
   const [successData, setSuccessData] = React.useState(null);
   const [lastUpdated, setLastUpdated] = React.useState(null);
   const [isOnboardingOpen, setIsOnboardingOpen] = React.useState(false);
+  const [targetInputs, setTargetInputs] = React.useState({});
+  const [isUpdating, setIsUpdating] = React.useState({});
   const [stats, setStats] = React.useState({
     avgPriceDrop: 0, totalSavings: 0, productCount: 0,
     avgPriceSpike: 0, totalSpike: 0, dropCount: 0, spikeCount: 0,
@@ -281,11 +283,11 @@ export default function Dashboard() {
     <div className="flex flex-col flex-1">
       <Navbar />
 
-      <main className="p-8 space-y-8 overflow-y-auto">
+      <main className="w-full max-w-full overflow-x-hidden p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 overflow-y-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Market Overview</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-tight">Market Overview</h1>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-cyan/10 border border-brand-cyan/20 rounded-full">
                   <div className="w-1.5 h-1.5 bg-brand-cyan rounded-full animate-pulse" />
@@ -298,12 +300,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-4">
-            <div className="flex items-center gap-3 bg-brand-card/50 p-1.5 rounded-2xl border border-brand-border h-fit shadow-lg">
+          <div className="flex w-full flex-col gap-3 md:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-x-6 lg:gap-y-4">
+            <div className="flex w-full items-center gap-3 bg-brand-card/50 p-1.5 rounded-2xl border border-brand-border h-fit shadow-lg sm:w-fit">
               <button
                 onClick={() => setFilterBelowTarget(!filterBelowTarget)}
                 className={cn(
-                  "px-5 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest flex items-center gap-2.5",
+                  "w-full justify-center px-5 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest flex items-center gap-2.5 sm:w-auto",
                   filterBelowTarget
                     ? "bg-emerald-500 text-brand-bg shadow-xl shadow-emerald-500/30 ring-2 ring-emerald-500/20"
                     : "text-gray-500 hover:text-white"
@@ -335,7 +337,7 @@ export default function Dashboard() {
 
             <div className="h-8 w-px bg-brand-border/30 hidden lg:block" />
 
-            <div className="flex bg-brand-card/50 p-1.5 rounded-2xl border border-brand-border h-fit shadow-lg">
+            <div className="grid w-full grid-cols-2 bg-brand-card/50 p-1.5 rounded-2xl border border-brand-border h-fit shadow-lg sm:flex sm:w-auto">
               {['Price', 'Trend', 'Category', 'Recent'].map((label, idx) => {
                 const key = ['price_val', 'trend', 'category', 'updated'][idx];
                 return (
@@ -343,7 +345,7 @@ export default function Dashboard() {
                     key={key}
                     onClick={() => setSortBy(key)}
                     className={cn(
-                      "px-5 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest",
+                      "px-3 sm:px-5 py-2 rounded-xl text-[10px] font-black transition-all uppercase tracking-widest",
                       sortBy === key
                         ? "bg-brand-cyan text-brand-bg shadow-xl shadow-brand-cyan/40 ring-2 ring-brand-cyan/20"
                         : "text-gray-500 hover:text-white"
@@ -406,7 +408,7 @@ export default function Dashboard() {
         {/* ─── Biggest Change Alert Banner ─────────────────────── */}
         {biggestChange.amount > 0 && (
           <div className={cn(
-            "rounded-2xl border p-6 flex items-center gap-6 transition-all",
+            "rounded-2xl border p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 transition-all",
             biggestChange.type === 'drop'
               ? "bg-emerald-500/5 border-emerald-500/20"
               : "bg-rose-500/5 border-rose-500/20"
@@ -423,7 +425,7 @@ export default function Dashboard() {
               }
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
                 <span className={cn(
                   "text-sm font-black uppercase tracking-wider",
                   biggestChange.type === 'drop' ? "text-emerald-400" : "text-rose-400"
@@ -579,10 +581,10 @@ export default function Dashboard() {
 
         {/* Table Section */}
         <div className="bg-brand-card border border-brand-border rounded-2xl overflow-hidden">
-          <div className="p-6 flex items-center justify-between border-b border-brand-border/50">
+          <div className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-brand-border/50">
             <div className="flex flex-col gap-1">
               <h3 className="font-black text-white uppercase tracking-wider text-sm italic">Live Tracking Board</h3>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest leading-none">Active nodes from Amazon & eBay</p>
                 {lastUpdated && (
                   <div className="flex items-center gap-2 group/time">
@@ -605,7 +607,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="min-w-[760px] w-full text-left">
               <thead className="bg-brand-bg/50 border-b border-brand-border text-[10px] uppercase tracking-widest text-gray-500">
                 <tr>
                   <th className="px-6 py-4 font-bold text-brand-cyan/50">#ID</th>
@@ -809,10 +811,10 @@ export default function Dashboard() {
 
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-brand-cyan text-brand-bg rounded-full shadow-lg shadow-brand-cyan/20 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group"
+        className="fixed bottom-24 right-4 md:bottom-8 md:right-8 w-14 h-14 bg-brand-cyan text-brand-bg rounded-full shadow-lg shadow-brand-cyan/20 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group"
       >
         <Plus className="w-8 h-8 font-black" />
-        <span className="absolute right-full mr-4 px-3 py-1.5 bg-brand-card border border-brand-border rounded-lg text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest">
+        <span className="absolute right-full mr-4 hidden px-3 py-1.5 bg-brand-card border border-brand-border rounded-lg text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none uppercase tracking-widest md:block">
           Add New Product
         </span>
       </button>

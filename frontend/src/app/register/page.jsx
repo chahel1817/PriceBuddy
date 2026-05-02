@@ -91,10 +91,10 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#060b13] flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="min-h-screen bg-[#060b13] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
             {/* Background elements */}
-            <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-brand-cyan/5 blur-[150px] rounded-full -z-10 translate-x-1/3 -translate-y-1/3" />
-            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-600/5 blur-[150px] rounded-full -z-10 -translate-x-1/3 translate-y-1/3" />
+            <div className="absolute top-0 right-0 h-80 w-80 sm:w-[800px] sm:h-[800px] bg-brand-cyan/5 blur-[150px] rounded-full -z-10 translate-x-1/3 -translate-y-1/3" />
+            <div className="absolute bottom-0 left-0 h-72 w-72 sm:w-[600px] sm:h-[600px] bg-blue-600/5 blur-[150px] rounded-full -z-10 -translate-x-1/3 translate-y-1/3" />
 
             <div className="w-full max-w-md space-y-8 relative z-10">
                 {/* Logo / Branding */}
@@ -102,14 +102,14 @@ export default function RegisterPage() {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-card border border-brand-border rounded-2xl mb-4 group hover:border-brand-cyan/30 transition-all duration-500 shadow-2xl">
                         <img src="/logo.png" alt="PriceBuddy" className="w-10 h-10 object-contain group-hover:scale-110 transition-transform duration-500" />
                     </div>
-                    <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">
+                    <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tighter uppercase leading-none">
                         Create <span className="text-brand-cyan">Account</span>
                     </h1>
                     <p className="text-gray-500 font-medium text-sm">Join PriceBuddy and start saving money real-time.</p>
                 </div>
 
                 {/* Form Card */}
-                <div className="bg-brand-card/40 backdrop-blur-xl border border-brand-border p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+                <div className="bg-brand-card/40 backdrop-blur-xl border border-brand-border p-5 sm:p-8 rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
                     {/* Animated accent line */}
                     <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-brand-cyan/0 via-brand-cyan to-brand-cyan/0 opacity-30 group-hover:opacity-100 transition-opacity duration-700" />
 

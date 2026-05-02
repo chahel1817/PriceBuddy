@@ -9,6 +9,12 @@ const hasLocalDbConfig = Boolean(
     process.env.DB_NAME ||
     process.env.DB_PORT
 );
+const isRailwayRuntime = Boolean(
+    process.env.RAILWAY_ENVIRONMENT ||
+    process.env.RAILWAY_PROJECT_ID ||
+    process.env.RAILWAY_SERVICE_ID
+);
+const shouldUseLocalConfig = hasLocalDbConfig && !isRailwayRuntime && process.env.DB_FORCE_REMOTE !== 'true';
 
 const localConfig = {
     host: process.env.DB_HOST || 'localhost',
@@ -34,7 +40,7 @@ const mysqlEnvConfig = process.env.MYSQL_URL || {
     timezone: 'Z'
 };
 
-const pool = mysql.createPool(hasLocalDbConfig ? localConfig : mysqlEnvConfig);
+const pool = mysql.createPool(shouldUseLocalConfig ? localConfig : mysqlEnvConfig);
 
 // Test connection
 const testConnection = async () => {

@@ -54,15 +54,15 @@ export default function AnalyticsPage() {
         <div className="flex flex-col flex-1 relative">
             {/* Background mesh */}
             <div className="absolute inset-0 bg-[#060b13] -z-10" />
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-brand-cyan/5 blur-[150px] rounded-full -z-10" />
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-600/5 blur-[120px] rounded-full -z-10" />
+            <div className="absolute top-0 right-0 h-72 w-72 sm:w-[600px] sm:h-[600px] bg-brand-cyan/5 blur-[150px] rounded-full -z-10" />
+            <div className="absolute bottom-0 left-0 h-64 w-64 sm:w-[400px] sm:h-[400px] bg-violet-600/5 blur-[120px] rounded-full -z-10" />
 
             <Navbar />
 
-            <main className="p-8 space-y-8 overflow-y-auto">
+            <main className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 overflow-y-auto">
                 <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Analytics & Intelligence</h1>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <h1 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-tight">Analytics & Intelligence</h1>
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-cyan/10 border border-brand-cyan/20 rounded-full">
                             <Activity className="w-3 h-3 text-brand-cyan" />
                             <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">Market Insights</span>
@@ -100,13 +100,13 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="bg-brand-card border border-brand-border p-8 rounded-[2.5rem] relative overflow-hidden group">
+                <div className="bg-brand-card border border-brand-border p-5 sm:p-8 rounded-[2rem] md:rounded-[2.5rem] relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:opacity-40 transition-opacity">
                         <BarChart3 className="w-32 h-32 text-brand-cyan" />
                     </div>
                     <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">
                         <div className="max-w-md space-y-4">
-                            <h2 className="text-3xl font-black text-white tracking-tighter uppercase leading-none">Unlock Premium Analytics</h2>
+                            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tighter uppercase leading-none">Unlock Premium Analytics</h2>
                             <p className="text-gray-400 text-sm">Gain access to historical trends beyond 30 days, predictive pricing models using machine learning, and advanced store-wide competitor analysis.</p>
                             <button className="px-8 py-3 bg-brand-cyan text-brand-bg font-black rounded-2xl hover:scale-[1.03] active:scale-95 transition-all text-xs uppercase tracking-widest shadow-lg shadow-brand-cyan/20">
                                 Upgrade to Enterprise
@@ -124,7 +124,7 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-brand-bg/20 p-8 border border-brand-border rounded-[2.5rem]">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 bg-brand-bg/20 p-5 sm:p-8 border border-brand-border rounded-[2rem] md:rounded-[2.5rem]">
                     <div className="space-y-4">
                         <h4 className="text-lg font-bold text-white uppercase tracking-tight">Active Categories</h4>
                         <div className="flex flex-wrap justify-center gap-2">

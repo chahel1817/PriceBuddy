@@ -188,8 +188,8 @@ export default function ProductsPage() {
                         </div>
                     </div>
 
-                    <div className="md:col-span-2 bg-[#0c1829] border border-brand-cyan/20 p-5 rounded-2xl flex items-center justify-between group hover:border-brand-cyan/40 transition-all cursor-pointer shadow-[0_0_20px_rgba(0,229,255,0.02)]">
-                        <div className="flex items-center gap-4">
+                    <div className="md:col-span-2 bg-[#0c1829] border border-brand-cyan/20 p-5 rounded-2xl flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between group hover:border-brand-cyan/40 transition-all cursor-pointer shadow-[0_0_20px_rgba(0,229,255,0.02)]">
+                        <div className="flex min-w-0 items-center gap-4">
                             <div className={cn(
                                 "w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-500",
                                 isNotified ? "bg-emerald-500/10 border-emerald-500/20" : "bg-brand-cyan/10 border-brand-cyan/20"
@@ -200,7 +200,7 @@ export default function ProductsPage() {
                                 <p className="text-xs font-black text-white uppercase tracking-tight">
                                     {isNotified ? 'Notifications Verified' : 'Active Pulse Monitoring'}
                                 </p>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                                <p className="break-words text-[10px] text-gray-500 font-bold uppercase tracking-widest">
                                     {isNotified ? `Alerts directed to ${userEmail}` : 'Get notified when any product price drops'}
                                 </p>
                             </div>
@@ -212,7 +212,7 @@ export default function ProductsPage() {
                                 else setIsNotified(false);
                             }}
                             className={cn(
-                                "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95",
+                                "w-full px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 sm:w-auto",
                                 isNotified
                                     ? "bg-emerald-500 text-brand-bg shadow-[0_0_15px_rgba(16,185,129,0.4)]"
                                     : "bg-brand-cyan text-brand-bg hover:shadow-[0_0_15px_rgba(0,229,255,0.4)]"
@@ -224,7 +224,7 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Controls */}
-                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
                     <div className="relative group w-full md:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-brand-cyan transition-colors" />
                         <input
@@ -235,7 +235,7 @@ export default function ProductsPage() {
                             className="w-full bg-brand-card border border-brand-border rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-brand-cyan/50 transition-all font-medium"
                         />
                     </div>
-                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
+                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
                         {categories.map(cat => (
                             <button
                                 key={cat}
@@ -256,7 +256,7 @@ export default function ProductsPage() {
                 {/* Table */}
                 <div className="bg-brand-card border border-brand-border rounded-3xl overflow-hidden shadow-2xl">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="min-w-[680px] w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-[#0c1829]/50 border-b border-brand-border">
                                     <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Product Intelligence</th>
@@ -342,7 +342,7 @@ export default function ProductsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-5 text-right">
-                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center justify-end gap-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); window.open(p.url || '#', '_blank'); }}
                                                         className="p-2 hover:bg-brand-cyan/10 rounded-lg transition-colors group/btn"

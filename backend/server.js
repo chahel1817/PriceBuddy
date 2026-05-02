@@ -898,14 +898,19 @@ app.post(['/product-source', '/api/product-source'], async (req, res) => {
 
 const bcrypt = require('bcryptjs');
 
+const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+const isBcryptHash = (value) => typeof value === 'string' && /^\$2[aby]\$\d{2}\$/.test(value);
+
 // ── User Authentication ───────────────────────────────────────
 
 // Register User
 app.post(['/register', '/api/register'], async (req, res) => {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body || {};
+    const email = normalizeEmail(req.body?.email);
+    const cleanName = String(name || '').trim();
 
     // Validation
-    if (!name || !email || !password) {
+    if (!cleanName || !email || !password) {
         return res.status(400).json({
             success: false,
             message: "Missing required fields: name, email, and password are required."
@@ -914,7 +919,7 @@ app.post(['/register', '/api/register'], async (req, res) => {
 
     try {
         // Check if user already exists
-        const [existing] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        const [existing] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
         if (existing.length > 0) {
             return res.status(409).json({
                 success: false,
@@ -928,26 +933,34 @@ app.post(['/register', '/api/register'], async (req, res) => {
 
         // Insert user
         const query = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
-        const [result] = await pool.query(query, [name, email, hashedPassword]);
+        const [result] = await pool.query(query, [cleanName, email, hashedPassword]);
 
         res.status(201).json({
             success: true,
             message: "User registered successfully!",
             user: {
                 id: result.insertId,
-                name,
-                email
+                name: cleanName,
+                email,
+                notifications_active: 0
             }
         });
     } catch (error) {
         console.error("Registration Error:", error);
+        if (error?.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                success: false,
+                message: "A user with this email already exists."
+            });
+        }
         res.status(500).json({ success: false, message: "Server error during registration." });
     }
 });
 
 // Login User
 app.post(['/login', '/api/login'], async (req, res) => {
-    const { email, password } = req.body;
+    const email = normalizeEmail(req.body?.email);
+    const { password } = req.body || {};
 
     if (!email || !password) {
         return res.status(400).json({
@@ -958,7 +971,10 @@ app.post(['/login', '/api/login'], async (req, res) => {
 
     try {
         // Find user
-        const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        const [users] = await pool.query(
+            'SELECT id, name, email, password, COALESCE(notifications_active, 0) AS notifications_active FROM users WHERE email = ? LIMIT 1',
+            [email]
+        );
         if (users.length === 0) {
             return res.status(401).json({
                 success: false,
@@ -967,6 +983,14 @@ app.post(['/login', '/api/login'], async (req, res) => {
         }
 
         const user = users[0];
+
+        if (!isBcryptHash(user.password)) {
+            console.error(`Login Error: invalid password hash for user ${user.id}`);
+            return res.status(409).json({
+                success: false,
+                message: "This account needs a password reset. Please register again or contact support."
+            });
+        }
 
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password);

@@ -243,18 +243,18 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-16 bg-brand-cyan/5 blur-2xl rounded-full" />
 
                 {/* ── HEADER ─────────────────────────────────────────────── */}
-                <div className="flex-shrink-0 px-7 pt-6 pb-5">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 px-4 pt-5 pb-4 sm:px-7 sm:pt-6 sm:pb-5">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                             <div className="w-10 h-10 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center">
                                 <ShoppingBag className="w-5 h-5 text-brand-cyan" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-white tracking-tight">Track Amazon & eBay Products</h2>
+                                <h2 className="text-base sm:text-lg font-black text-white tracking-tight">Track Amazon & eBay Products</h2>
                                 <p className="text-[11px] text-gray-500 font-medium">Search live listings and add them to your price tracker</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                             {addedCount > 0 && (
                                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -275,23 +275,23 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                         <form onSubmit={handleSearch} className="relative group">
                             {/* Focus glow */}
                             <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-brand-cyan/0 via-brand-cyan/15 to-brand-cyan/0 opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm pointer-events-none" />
-                            <div className="relative flex items-center bg-[#080f1c] border border-white/8 rounded-2xl overflow-hidden focus-within:border-brand-cyan/40 transition-all duration-300">
+                            <div className="relative flex flex-col gap-2 bg-[#080f1c] border border-white/8 rounded-2xl p-2 focus-within:border-brand-cyan/40 transition-all duration-300 sm:flex-row sm:items-center sm:gap-0">
                                 <div className="pl-5 pr-3 flex-shrink-0">
-                                    <Search className="w-4 h-4 text-gray-600 group-focus-within:text-brand-cyan transition-colors" />
+                                    <Search className="hidden w-4 h-4 text-gray-600 group-focus-within:text-brand-cyan transition-colors sm:block" />
                                 </div>
                                 <input
                                     ref={inputRef}
                                     type="text"
                                     placeholder="Search Amazon & eBay — iPhone 15, RTX 4090, AirPods Pro..."
-                                    className="flex-1 bg-transparent py-3.5 pr-3 text-sm text-white placeholder:text-gray-700 font-medium focus:outline-none"
+                                    className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder:text-gray-700 font-medium focus:outline-none sm:px-0 sm:py-3.5 sm:pr-3"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                 />
-                                <div className="pr-2 flex-shrink-0">
+                                <div className="flex-shrink-0 sm:pr-2">
                                     <button
                                         type="submit"
                                         disabled={searching || query.trim().length < 2}
-                                        className="flex items-center gap-2 px-5 py-2.5 bg-brand-cyan text-brand-bg font-black rounded-xl text-[11px] uppercase tracking-widest hover:scale-[1.03] active:scale-95 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-brand-cyan/20"
+                                        className="flex w-full items-center justify-center gap-2 px-5 py-2.5 bg-brand-cyan text-brand-bg font-black rounded-xl text-[11px] uppercase tracking-widest hover:scale-[1.03] active:scale-95 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-brand-cyan/20 sm:w-auto"
                                     >
                                         {searching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                                         {searching ? 'Searching' : 'Search'}
@@ -344,7 +344,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                 </div>
 
                 {/* ── RESULTS AREA ──────────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto min-h-0 px-7 pb-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
+                <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-5 sm:px-7 sm:pb-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full">
 
                     {/* Loading */}
                     {searching && (
@@ -357,7 +357,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                                 </div>
                                 <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Scanning Amazon & eBay live listings...</span>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-1 min-[430px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
                             </div>
                         </div>
@@ -391,7 +391,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                     {!searching && searched && filteredResults.length > 0 && (
                         <div>
                             {/* Summary bar */}
-                            <div className="flex items-center justify-between mb-4 pt-1">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 pt-1">
                                 <p className="text-[11px] font-black text-gray-600 uppercase tracking-widest">
                                     <span className="text-brand-cyan">{filteredResults.length}</span> listings found for <span className="text-gray-300">"{query}"</span>
                                 </p>
@@ -404,7 +404,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             {/* 4-column product grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-1 min-[430px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {filteredResults.map((product, idx) => (
                                     <ProductCard
                                         key={`${product.id}-${idx}`}
@@ -421,7 +421,7 @@ export default function AddProductModal({ isOpen, onClose, onSuccess }) {
 
                 {/* ── FOOTER ───────────────────────────────────────────────── */}
                 {addedCount > 0 && (
-                    <div className="flex-shrink-0 relative px-7 py-4 border-t border-white/8" style={{ background: 'linear-gradient(to top, rgba(0,229,255,0.04) 0%, transparent 100%)' }}>
+                    <div className="flex-shrink-0 relative px-4 py-4 border-t border-white/8 sm:px-7" style={{ background: 'linear-gradient(to top, rgba(0,229,255,0.04) 0%, transparent 100%)' }}>
                         <div className="absolute top-0 left-7 right-7 h-px bg-gradient-to-r from-transparent via-brand-cyan/20 to-transparent" />
                         <button
                             onClick={handleReset}

@@ -49,16 +49,16 @@ export default function ComparisonPage() {
         <div className="flex flex-col flex-1 relative">
             {/* Background elements */}
             <div className="absolute inset-0 bg-[#060b13] -z-10" />
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-cyan/5 blur-[120px] rounded-full -z-10" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-600/5 blur-[120px] rounded-full -z-10" />
+            <div className="absolute top-0 right-0 h-72 w-72 sm:w-[500px] sm:h-[500px] bg-brand-cyan/5 blur-[120px] rounded-full -z-10" />
+            <div className="absolute bottom-0 left-0 h-72 w-72 sm:w-[500px] sm:h-[500px] bg-blue-600/5 blur-[120px] rounded-full -z-10" />
 
             <Navbar />
 
-            <main className="p-8 space-y-8 overflow-y-auto">
-                <div className="flex items-end justify-between">
+            <main className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 overflow-y-auto">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-white uppercase tracking-tight">Product Comparison</h1>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-tight">Product Comparison</h1>
                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-cyan/10 border border-brand-cyan/20 rounded-full">
                                 <ArrowLeftRight className="w-3 h-3 text-brand-cyan" />
                                 <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider">Side-by-Side</span>
@@ -68,7 +68,7 @@ export default function ComparisonPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                     {loading ? (
                         <div className="p-12 text-center col-span-full">
                             <Activity className="w-8 h-8 text-brand-cyan animate-spin mx-auto mb-4" />

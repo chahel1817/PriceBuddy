@@ -77,18 +77,18 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#060b13] px-6 py-10 md:px-10">
+    <div className="relative min-h-screen overflow-hidden bg-[#060b13] px-4 py-6 sm:px-6 sm:py-10 md:px-10">
       <div className="pointer-events-none absolute -left-28 top-0 h-96 w-96 rounded-full bg-brand-cyan/10 blur-[120px]" />
       <div className="pointer-events-none absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-violet-500/10 blur-[120px]" />
 
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[2rem] border border-brand-border bg-brand-card/30 p-7 backdrop-blur-xl md:p-10">
+        <section className="rounded-[1.5rem] md:rounded-[2rem] border border-brand-border bg-brand-card/30 p-5 sm:p-7 backdrop-blur-xl md:p-10">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-cyan">
                 Personalization Center
               </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-white md:text-5xl">
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl md:text-5xl">
                 Settings that feel enterprise-grade.
               </h1>
               <p className="mt-3 max-w-2xl text-sm text-gray-400">
@@ -96,7 +96,7 @@ export default function SettingsPage() {
                 premium control panel.
               </p>
             </div>
-            <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2">
+            <div className="flex w-full items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 sm:w-auto">
               <Check className="h-4 w-4 text-emerald-300" />
               <span className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">
                 Session Login Protected
@@ -106,8 +106,8 @@ export default function SettingsPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <article className="rounded-[2rem] border border-brand-border bg-brand-card/25 p-6 md:p-8">
-            <div className="mb-7 flex items-center justify-between">
+          <article className="rounded-[1.5rem] md:rounded-[2rem] border border-brand-border bg-brand-card/25 p-5 sm:p-6 md:p-8">
+            <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl border border-brand-border bg-brand-bg/70 p-2.5">
                   <User2 className="h-5 w-5 text-brand-cyan" />
@@ -141,7 +141,7 @@ export default function SettingsPage() {
             </div>
           </article>
 
-          <article className="rounded-[2rem] border border-brand-border bg-brand-card/25 p-6 md:p-8">
+          <article className="rounded-[1.5rem] md:rounded-[2rem] border border-brand-border bg-brand-card/25 p-5 sm:p-6 md:p-8">
             <div className="mb-6 flex items-center gap-3">
               <div className="rounded-xl border border-brand-border bg-brand-bg/70 p-2.5">
                 <Sparkles className="h-5 w-5 text-brand-cyan" />
@@ -172,7 +172,7 @@ export default function SettingsPage() {
           </article>
         </section>
 
-        <section className="rounded-[2rem] border border-brand-border bg-brand-card/25 p-6 md:p-8">
+        <section className="rounded-[1.5rem] md:rounded-[2rem] border border-brand-border bg-brand-card/25 p-5 sm:p-6 md:p-8">
           <div className="mb-6 flex items-center gap-3">
             <div className="rounded-xl border border-brand-border bg-brand-bg/70 p-2.5">
               <Lock className="h-5 w-5 text-brand-cyan" />
@@ -188,7 +188,7 @@ export default function SettingsPage() {
               return (
                 <div
                   key={item.key}
-                  className="flex items-center justify-between rounded-2xl border border-brand-border bg-brand-bg/55 px-4 py-3"
+                  className="flex flex-col gap-3 rounded-2xl border border-brand-border bg-brand-bg/55 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 rounded-lg bg-white/5 p-2">
