@@ -77,29 +77,41 @@ function hasAnyDbObjectConfig(cfg) {
 }
 
 function getPoolConfig() {
+    let cfg = {};
     const uri = getConnectionUriFromEnv();
-    if (uri) return uri;
 
-    const cfg = buildDbObjectConfig();
+    if (uri) {
+        try {
+            const parsed = new URL(uri);
+            cfg = {
+                host: parsed.hostname,
+                user: parsed.username,
+                password: parsed.password,
+                database: parsed.pathname.replace(/^\//, ''),
+                port: parsed.port ? Number(parsed.port) : 3306
+            };
+        } catch (err) {
+            console.error('Failed to parse database URI:', err);
+        }
+    }
+
+    if (!hasAnyDbObjectConfig(cfg)) {
+        cfg = buildDbObjectConfig();
+    }
+
     const hasCfg = hasAnyDbObjectConfig(cfg);
 
-    // In local/dev we allow reasonable defaults if nothing is provided.
     if (!hasCfg && !isProductionLike && !isManagedRuntime) {
-        return {
+        cfg = {
             host: 'localhost',
             user: 'root',
             password: '',
             database: 'pricebuddy',
-            port: 3306,
-            waitForConnections: true,
-            connectionLimit: 10,
-            queueLimit: 0,
-            timezone: 'Z'
+            port: 3306
         };
     }
 
-    // In production-like environments, defaulting to localhost causes ECONNREFUSED on Render.
-    if (!hasCfg && (isProductionLike || isManagedRuntime)) {
+    if (!hasAnyDbObjectConfig(cfg) && (isProductionLike || isManagedRuntime)) {
         throw new Error(
             [
                 'Missing MySQL configuration in production.',
@@ -108,8 +120,21 @@ function getPoolConfig() {
             ].join(' ')
         );
     }
+    
+    // Always apply SSL if connecting to TiDB Serverless
+    if (cfg.host && cfg.host.includes('tidbcloud.com')) {
+        cfg.ssl = { minVersion: 'TLSv1.2', rejectUnauthorized: true };
+    }
 
-    return cfg;
+    return {
+        ...cfg,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10000,
+        timezone: 'Z'
+    };
 }
 
 const pool = mysql.createPool(getPoolConfig());
